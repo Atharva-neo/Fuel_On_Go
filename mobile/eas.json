@@ -1,0 +1,26 @@
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "production-env": {
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://aeadqckjwjchetzhupjd.supabase.co",
+        "EXPO_PUBLIC_API_URL": "https://generous-elegance-production-33ae.up.railway.app/api"
+      }
+    },
+    "preview": {
+      "extends": "production-env",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
+    "production": {
+      "extends": "production-env",
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Environment files and secrets
+.env*
+!.env.example
+!.env.*.example
+
+# The Railway credential shared for this workspace
+.claude/skills/1.txt
+
+# Dependencies and generated application output
+**/node_modules/
+frontend/.next/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/.expo/export-check/
+
+# Native build artifacts and signing material
+mobile/android/
+mobile/ios/
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.key
+*.pem
+
+# Tooling output
+coverage/
+*.tsbuildinfo
+.DS_Store

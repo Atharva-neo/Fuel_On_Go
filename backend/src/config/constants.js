@@ -1,0 +1,22 @@
+const SLOT_DURATION_MINUTES = 30;
+const SLOT_CAPACITY = 5;
+const BOOKING_LOCK_WINDOW_MINUTES = 2;
+const BOOKING_LATE_GRACE_MINUTES = 10;
+const LOW_CNG_THRESHOLD = 10;
+
+const SOCKET_EVENTS = {
+  PUMP_UPDATED: 'pump:updated',
+  SLOT_UPDATED: 'slot:updated',
+  BOOKING_CREATED: 'booking:created',
+  BOOKING_CANCELLED: 'booking:cancelled',
+  BOOKING_STATUS_CHANGED: 'booking:status:changed',
+};
+
+module.exports = {
+  SLOT_DURATION_MINUTES,
+  SLOT_CAPACITY,
+  BOOKING_LOCK_WINDOW_MINUTES,
+  BOOKING_LATE_GRACE_MINUTES,
+  LOW_CNG_THRESHOLD,
+  SOCKET_EVENTS,
+};

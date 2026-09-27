@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Fuel on Go",
+    "slug": "fuel-on-go",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.fuelongo.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Fuel on Go uses your location to find nearby CNG pumps.",
+        "NSCameraUsageDescription": "Fuel on Go may use the camera for QR code scanning.",
+        "NSUserNotificationsUsageDescription": "Fuel on Go sends booking reminders and slot alerts."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0E1A"
+      },
+      "package": "com.fuelongo.app",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "RECORD_AUDIO"
+      ],
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-location",
+      "expo-camera",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1a561420-7a0b-4b6a-a4fd-01702066698b"
+      }
+    },
+    "owner": "atharva-neo"
+  }
+}

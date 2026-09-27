@@ -1,0 +1,288 @@
+const express = require('express');
+const router  = express.Router();
+const { supabase } = require('../config/supabase');
+const { authenticate } = require('./authRoutes');
+
+// ─── Middleware: pump owner or admin ─────────────────────────
+async function requireAdmin(req, res, next) {
+  const { data } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', req.user.sub)
+    .single();
+  if (!data || !['admin','pump_owner'].includes(data.role)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  req.userRole = data.role;
+  next();
+}
+
+// ─── POST /api/admin/checkin  (QR scan) ──────────────────────
+router.post('/checkin', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { qr_token } = req.body;
+    if (!qr_token) return res.status(400).json({ error: 'qr_token required' });
+
+    const { data, error } = await supabase.rpc('checkin_booking', {
+      p_qr_token: qr_token,
+      p_admin_id: req.user.sub,
+    });
+
+    if (error) throw error;
+
+    // Fetch user info
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('*, users(name,vehicle_number,trust_score), pumps(name)')
+      .eq('id', data.id)
+      .single();
+
+    res.json({
+      success: true,
+      booking: data,
+      customer: booking?.users,
+    });
+  } catch (err) {
+    const status = err.message.includes('Invalid') ? 404
+                 : err.message.includes('authorized') ? 403
+                 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/admin/stats ────────────────────────────────────
+router.get('/stats', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { pump_id, date } = req.query;
+    const d = date || new Date().toISOString().split('T')[0];
+
+    let pumpId = pump_id;
+    if (!pumpId) {
+      // Default to first pump owned by this user
+      const { data: pump } = await supabase
+        .from('pumps')
+        .select('id')
+        .eq('owner_id', req.user.sub)
+        .limit(1)
+        .maybeSingle();
+      pumpId = pump?.id;
+    }
+
+    if (!pumpId) return res.status(400).json({ error: 'No pump found for this admin' });
+
+    const { data: slots }    = await supabase.from('slots').select('capacity,booked_count').eq('pump_id', pumpId).eq('slot_date', d);
+    const { data: bookings } = await supabase.from('bookings').select('status,amount_paid_now,pending_amount').eq('pump_id', pumpId).eq('slot_date', d);
+
+    const total_slots    = (slots || []).reduce((s, x) => s + x.capacity, 0);
+    const booked_slots   = (slots || []).reduce((s, x) => s + x.booked_count, 0);
+    const arrived_count  = (bookings || []).filter(b => b.status === 'arrived').length;
+    const no_show_count  = (bookings || []).filter(b => b.status === 'no_show').length;
+    const booking_fee_collected = (bookings || []).reduce((s, b) => s + Number(b.amount_paid_now), 0);
+    const pending_collection    = (bookings || []).filter(b => b.status === 'arrived').reduce((s, b) => s + Number(b.pending_amount), 0);
+
+    res.json({ pump_id: pumpId, date: d, total_slots, booked_slots, arrived_count, no_show_count, booking_fee_collected, pending_collection });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { data: pump, error: pumpErr } = await supabase
+      .from('pumps')
+      .select('*')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pumpErr) throw pumpErr;
+
+    if (!pump) {
+      return res.json({
+        success: true,
+        has_pump: false,
+        data: null,
+      });
+    }
+
+    const today = new Date();
+    const y = today.getUTCFullYear();
+    const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(today.getUTCDate()).padStart(2, '0');
+    const startIso = `${y}-${m}-${d}T00:00:00`;
+    const endIso = `${y}-${m}-${d}T23:59:59`;
+
+    const { data: slots, error: slotsErr } = await supabase
+      .from('slots')
+      .select('id, capacity, booked_count, start_time, end_time')
+      .eq('pump_id', pump.id)
+      .gte('start_time', startIso)
+      .lte('start_time', endIso);
+    if (slotsErr) throw slotsErr;
+
+    const slotIds = (slots || []).map((s) => s.id);
+    let bookings = [];
+    if (slotIds.length) {
+      const { data: bData, error: bErr } = await supabase
+        .from('bookings')
+        .select('*')
+        .in('slot_id', slotIds);
+      if (bErr) throw bErr;
+      bookings = bData || [];
+    }
+
+    return res.json({
+      success: true,
+      has_pump: true,
+      data: {
+        pump,
+        stats: {
+          total_slots: slots?.length || 0,
+          booked: bookings.filter((b) => b.status === 'confirmed').length,
+          arrived: bookings.filter((b) => b.status === 'arrived').length,
+          no_shows: bookings.filter((b) => b.status === 'no_show').length,
+          cancelled: bookings.filter((b) => b.status === 'cancelled').length,
+          revenue_collected: bookings
+            .filter((b) => b.status !== 'cancelled')
+            .reduce((sum, b) => sum + Number(b.booking_fee || 0), 0),
+          pending_at_pump: bookings
+            .filter((b) => b.status === 'arrived')
+            .reduce((sum, b) => sum + Number(b.remaining_amount || b.pending_amount || 0), 0),
+        },
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── GET /api/admin/bookings ─────────────────────────────────
+router.get('/bookings', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { pump_id, date, status } = req.query;
+    const d = date || new Date().toISOString().split('T')[0];
+
+    let query = supabase.from('bookings')
+      .select('*, users(name,vehicle_number,trust_score), pumps(name)')
+      .eq('slot_date', d)
+      .order('slot_start');
+
+    if (pump_id) query = query.eq('pump_id', pump_id);
+    if (status)  query = query.eq('status', status);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PATCH /api/admin/pumps/:id ──────────────────────────────
+router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { cng_price_per_kg, fuel_density, supply_status, public_message } = req.body;
+    const { data, error } = await supabase
+      .from('pumps')
+      .update({ cng_price_per_kg, fuel_density, supply_status, public_message })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/admin/pumps (register new pump) ───────────────
+router.post('/pumps', authenticate, async (req, res) => {
+  try {
+    const { name, address, city, district, lat, lng, cng_price_per_kg,
+            working_hours_start, working_hours_end, vehicles_per_slot } = req.body;
+
+    const { data, error } = await supabase
+      .from('pumps')
+      .insert({
+        owner_id: req.user.sub,
+        name, address, city: city || '', district: district || '',
+        lat, lng, cng_price_per_kg: cng_price_per_kg || 89.00,
+        working_hours_start: working_hours_start || '06:00',
+        working_hours_end:   working_hours_end   || '22:00',
+        vehicles_per_slot:   vehicles_per_slot   || 5,
+        is_active:  true,
+        is_verified: false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Generate slots for today and tomorrow
+    await supabase.rpc('generate_daily_slots', { p_pump_id: data.id, p_date: new Date().toISOString().split('T')[0] });
+
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/admin/slots ────────────────────────────────────
+// Returns all slots for the authenticated pump owner's pump
+// Query param: ?date=YYYY-MM-DD (default: today IST)
+router.get('/slots', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+
+    // Find this owner's pump
+    const { data: pump, error: pumpErr } = await supabase
+      .from('pumps')
+      .select('id')
+      .eq('owner_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (pumpErr) throw pumpErr;
+    if (!pump) return res.status(404).json({ error: 'No pump found for this account. Please register your pump first.' });
+
+    // Resolve date — default to today in IST
+    let date = req.query.date;
+    if (!date) {
+      const now = new Date();
+      const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+      date = ist.toISOString().split('T')[0];
+    }
+
+    // Fetch slots for the pump on that date
+    const { data: slots, error: slotsErr } = await supabase
+      .from('slots')
+      .select('id, start_time, end_time, capacity, booked_count, status, is_deactivated, deactivation_reason, resume_time, slot_date')
+      .eq('pump_id', pump.id)
+      .eq('slot_date', date)
+      .order('start_time', { ascending: true });
+
+    if (slotsErr) throw slotsErr;
+
+    // Normalise status field
+    const enriched = (slots || []).map((slot) => {
+      let st = slot.status;
+      if (slot.is_deactivated) st = 'deactivated';
+      else if (!st || st === 'open') st = 'open';
+      return {
+        ...slot,
+        status: st,
+        booked_count: slot.booked_count || 0,
+        capacity: slot.capacity || 5,
+      };
+    });
+
+    return res.json({ slots: enriched });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+
