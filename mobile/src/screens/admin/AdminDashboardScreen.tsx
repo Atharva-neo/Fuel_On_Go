@@ -75,6 +75,12 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (!dashData?.pump) {
     return (
       <View style={styles.loader}>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={[styles.retryBtn, { backgroundColor: 'rgba(239,68,68,0.15)', marginBottom: 32 }]}
+        >
+          <Text style={[styles.retryText, { color: '#EF4444' }]}>Logout</Text>
+        </TouchableOpacity>
         <Text style={styles.errorTitle}>No pump registered yet.</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.navigate('AddPump')}>
           <Text style={styles.retryText}>+ Register Your CNG Pump</Text>

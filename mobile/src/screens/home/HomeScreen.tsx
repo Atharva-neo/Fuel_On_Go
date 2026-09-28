@@ -293,7 +293,7 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const onBookPump = (pump: Pump) => {
-    navigation.navigate('PumpDetail', { pumpId: pump.id });
+    navigation.getParent()?.navigate('PumpDetail', { pumpId: pump.id });
   };
 
   return (
@@ -342,7 +342,7 @@ export default function HomeScreen({ navigation }: any) {
             {selectedPump.address}
           </Text>
           <View style={styles.popupActions}>
-            <TouchableOpacity style={styles.popupPrimary} onPress={() => navigation.navigate('PumpDetail', { pumpId: selectedPump.id })}>
+            <TouchableOpacity style={styles.popupPrimary} onPress={() => navigation.getParent()?.navigate('PumpDetail', { pumpId: selectedPump.id })}>
               <Text style={styles.popupPrimaryText}>View & Book</Text>
             </TouchableOpacity>
             <TouchableOpacity

@@ -14,6 +14,7 @@ import RegistrationScreen from '../screens/RegistrationScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import PumpDetailScreen from '../screens/pump/PumpDetailScreen';
 import BookingDetailScreen from '../screens/booking/BookingDetailScreen';
+import BookingSuccessScreen from '../screens/booking/BookingSuccessScreen';
 import MyBookingsScreen from '../screens/booking/MyBookingsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import NavigationMapScreen from '../screens/booking/NavigationMapScreen';
@@ -93,6 +94,7 @@ const UserNavigator = () => (
     <UserRootStack.Screen name="UserTabs" component={UserTabs} />
     <UserRootStack.Screen name="PumpDetail" component={PumpDetailScreen} />
     <UserRootStack.Screen name="BookingDetail" component={BookingDetailScreen} />
+    <UserRootStack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
     <UserRootStack.Screen name="Navigation" component={NavigationMapScreen} />
     <UserRootStack.Screen name="NavigationMap" component={NavigationMapScreen} />
     <UserRootStack.Screen name="Payment" component={PaymentScreen} />

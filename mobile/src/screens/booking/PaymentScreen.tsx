@@ -60,7 +60,7 @@ export default function PaymentScreen({ route, navigation }: any) {
         payment_option: paymentType,
       });
 
-      navigation.replace('BookingSuccess', {
+      navigation.navigate('BookingSuccess', {
         booking: {
           ...res.data,
           pump_name: pump.name,
