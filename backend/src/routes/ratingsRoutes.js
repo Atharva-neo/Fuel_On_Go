@@ -50,7 +50,7 @@ router.post('/', authenticate, async (req, res) => {
       const avg = allRatings.reduce((s, r) => s + r.rating, 0) / allRatings.length;
       await supabase
         .from('pumps')
-        .update({ rating: Math.round(avg * 10) / 10, rating_count: allRatings.length })
+        .update({ rating: Math.round(avg * 10) / 10 })
         .eq('id', pump_id);
     }
 

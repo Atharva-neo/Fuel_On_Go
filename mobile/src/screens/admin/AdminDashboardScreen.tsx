@@ -68,6 +68,12 @@ export default function AdminDashboardScreen({ navigation }: any) {
         <TouchableOpacity style={styles.retryBtn} onPress={fetchDashboard}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={[styles.retryBtn, { backgroundColor: 'rgba(239,68,68,0.15)', marginTop: 16 }]}
+        >
+          <Text style={[styles.retryText, { color: '#EF4444' }]}>Logout</Text>
+        </TouchableOpacity>
       </View>
     );
   }
