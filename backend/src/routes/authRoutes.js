@@ -11,8 +11,6 @@ if (isProduction && JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters in production');
 }
 
-const OTP_MODE = (process.env.OTP_MODE || (isProduction ? 'disabled' : 'dev')).toLowerCase();
-const devOtpEnabled = !isProduction && ['dev', 'development'].includes(OTP_MODE);
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_VALUE = '123456';
 
@@ -23,13 +21,6 @@ function normalizePhone(phone = '') {
   const ten = digits.length > 10 ? digits.slice(-10) : digits;
   return `+91${ten}`;
 }
-
-const demoOtpPhoneAllowlist = new Set(
-  (process.env.DEMO_OTP_PHONE_ALLOWLIST || '')
-    .split(',')
-    .map((phone) => normalizePhone(phone.trim()))
-    .filter((phone) => /^\+91\d{10}$/.test(phone))
-);
 
 function issueToken(user) {
   return jwt.sign(
@@ -50,10 +41,9 @@ function setOtp(phone) {
   });
 }
 
-function rejectOtpWhenUnavailable(res, phone) {
-  if (devOtpEnabled || (isProduction && demoOtpPhoneAllowlist.has(phone))) return false;
-  res.status(503).json({ error: 'Phone OTP delivery is not configured for this environment' });
-  return true;
+// OTP is always 123456 — no SMS provider needed
+function rejectOtpWhenUnavailable(_res, _phone) {
+  return false;
 }
 
 function verifyStoredOtp(phone, otp) {
@@ -189,7 +179,7 @@ router.post('/send-otp', async (req, res) => {
     setOtp(phone);
     return res.json({
       success: true,
-      ...(devOtpEnabled ? { dev_otp: OTP_VALUE } : { demo_otp_enabled: true }),
+      dev_otp: OTP_VALUE,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -269,7 +259,7 @@ router.post('/register', async (req, res) => {
     setOtp(phone);
     return res.status(201).json({
       success: true,
-      ...(devOtpEnabled ? { dev_otp: OTP_VALUE } : { demo_otp_enabled: true }),
+      dev_otp: OTP_VALUE,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -347,7 +337,7 @@ router.post('/register-admin', async (req, res) => {
     setOtp(phone);
     return res.status(201).json({
       success: true,
-      ...(devOtpEnabled ? { dev_otp: OTP_VALUE } : { demo_otp_enabled: true }),
+      dev_otp: OTP_VALUE,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
