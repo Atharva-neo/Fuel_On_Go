@@ -214,7 +214,7 @@ router.post('/confirm', authenticate, async (req, res) => {
       return res.status(409).json({ error: 'Slot is full' });
     }
 
-    const slotStart = new Date(slot.start_time || `${slot.slot_date}T${slot.start_time}`);
+    const slotStart = new Date(`${slot.slot_date}T${slot.start_time}`);
     if (Number.isFinite(slotStart.getTime()) && slotStart.getTime() < Date.now()) {
       return res.status(400).json({ error: 'Slot has expired' });
     }
@@ -227,16 +227,12 @@ router.post('/confirm', authenticate, async (req, res) => {
       slot_start: slot.start_time?.slice?.(0, 5) || slot.start_time,
       slot_end: slot.end_time?.slice?.(0, 5) || slot.end_time,
       status: 'confirmed',
-      cng_amount_kg: Number(cng_amount_kg || 0),
       booking_fee: Number(booking_fee || 0),
       total_estimated: Number(total_estimated || 0),
-      remaining_amount: Number(remaining_amount || 0),
       pending_amount: Number(remaining_amount || 0),
       fuel_payment_method: fuel_payment_method || 'cash',
       qr_token: crypto.randomUUID(),
-      amount_paid: Number(booking_fee || 0),
       amount_paid_now: Number(booking_fee || 0),
-      qr_used: false,
     };
 
     const { data: inserted, error: insErr } = await supabase
@@ -372,8 +368,9 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
       });
     }
 
-    const slotStart = new Date(`${booking.slot_date}T${booking.slot_start}:00+05:30`);
-    const slotEnd = new Date(`${booking.slot_date}T${booking.slot_end}:00+05:30`);
+    const toHms = (t) => (String(t).length <= 5 ? `${t}:00` : String(t).slice(0, 8));
+    const slotStart = new Date(`${booking.slot_date}T${toHms(booking.slot_start)}+05:30`);
+    const slotEnd = new Date(`${booking.slot_date}T${toHms(booking.slot_end)}+05:30`);
     const now = new Date();
 
     const allowedStart = new Date(slotStart.getTime() - 5 * 60 * 1000);
@@ -393,10 +390,9 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
       });
     }
 
-    const nowIso = new Date().toISOString();
     const { data: updated, error: updateErr } = await supabase
       .from('bookings')
-      .update({ status: 'arrived', qr_used: true, arrived_at: nowIso })
+      .update({ status: 'arrived' })
       .eq('id', booking.id)
       .select('*')
       .single();
@@ -405,7 +401,7 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
 
     const { data: user } = await supabase
       .from('users')
-      .select('name, phone, vehicle_number')
+      .select('name, phone, vehicle_number, vehicle_type, trust_score')
       .eq('id', booking.user_id)
       .maybeSingle();
 

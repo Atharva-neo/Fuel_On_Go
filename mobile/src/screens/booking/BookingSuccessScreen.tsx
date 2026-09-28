@@ -76,7 +76,7 @@ export default function BookingSuccessScreen() {
             <Button
               variant="outline"
               size="full"
-              onPress={() => navigation.navigate('BookingDetail', { booking })}
+              onPress={() => navigation.navigate('BookingDetail', { bookingId: booking.id })}
             >
               View Booking Details
             </Button>

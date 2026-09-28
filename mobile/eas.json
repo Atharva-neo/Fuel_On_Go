@@ -6,6 +6,7 @@
     "production-env": {
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://aeadqckjwjchetzhupjd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_UdEdnpgqOjIVhGEsM1f6AA_H9cptIb4",
         "EXPO_PUBLIC_API_URL": "https://generous-elegance-production-33ae.up.railway.app/api"
       }
     },

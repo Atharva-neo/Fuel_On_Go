@@ -46,8 +46,9 @@ export default function BookingDetailScreen({ route, navigation }: any) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.post(`/bookings/${bookingId}/cancel`, {}, {
+            await api.delete(`/bookings/${bookingId}`, {
               headers: { Authorization: `Bearer ${token}` },
+              data: { refund: 0 },
             });
             fetchBooking();
             Alert.alert('Success', 'Booking cancelled successfully.');

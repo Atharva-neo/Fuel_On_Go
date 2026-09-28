@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import api from '../../config/api';
+import { bookingService } from '../../services/booking.service';
 import { ArrowLeftIcon } from '../../components/ui/Icons';
 
 const BOOKING_FEE = 50; // Fixed ₹50 booking fee
@@ -44,14 +44,12 @@ export default function PaymentScreen({ route, navigation }: any) {
       // Simulate payment gateway delay
       await new Promise((r) => setTimeout(r, 1500));
 
-      const res = await api.post('/bookings/create', {
+      const booking = await bookingService.createBooking({
         pump_id: pump.id,
         slot_id: slot.id,
         slot_date: slotDate,
         slot_start: slotStart,
         slot_end: slotEnd,
-        payment_type: paymentType,
-        paid_amount: paidNow,
         booking_fee: BOOKING_FEE,
         total_estimated: fullAmount,
         amount_paid_now: paidNow,
@@ -62,7 +60,7 @@ export default function PaymentScreen({ route, navigation }: any) {
 
       navigation.navigate('BookingSuccess', {
         booking: {
-          ...res.data,
+          ...booking,
           pump_name: pump.name,
           pump_address: pump.address,
           slot_date: slotDate,
