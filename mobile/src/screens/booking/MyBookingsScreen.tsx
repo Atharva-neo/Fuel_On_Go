@@ -25,10 +25,10 @@ export default function MyBookingsScreen({ navigation }: any) {
 
   const fetchBookings = async () => {
     try {
-      const res = await api.get('/bookings/my-bookings', {
+      const res = await api.get('/bookings', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setBookings(res.data);
+      setBookings(res.data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -36,7 +36,13 @@ export default function MyBookingsScreen({ navigation }: any) {
     }
   };
 
-  const filteredBookings = bookings.filter((b) => b.status === activeTab);
+  // DB statuses: confirmed, arrived, no_show, cancelled
+  // 'pending' tab shows confirmed+arrived, 'completed' shows arrived+no_show, 'cancelled' as-is
+  const filteredBookings = bookings.filter((b) => {
+    if (activeTab === 'pending') return b.status === 'confirmed' || b.status === 'arrived';
+    if (activeTab === 'completed') return b.status === 'arrived' || b.status === 'no_show';
+    return b.status === 'cancelled';
+  });
 
   const renderBooking = ({ item }: { item: any }) => {
     const isPending = item.status === 'pending';
@@ -50,17 +56,17 @@ export default function MyBookingsScreen({ navigation }: any) {
         onPress={() => navigation.navigate('BookingDetail', { bookingId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.pumpName} numberOfLines={1}>{item.pump.name}</Text>
-          <View style={[styles.statusBadge, isPending ? styles.statusPending : isCancelled ? styles.statusCancelled : styles.statusCompleted]}>
-            <Text style={[styles.statusText, isPending ? styles.statusTextPending : isCancelled ? styles.statusTextCancelled : styles.statusTextCompleted]}>
+          <Text style={styles.pumpName} numberOfLines={1}>{item.pump_name || item.pump?.name || 'Unknown Pump'}</Text>
+          <View style={[styles.statusBadge, (item.status === 'confirmed' || item.status === 'arrived') ? styles.statusPending : item.status === 'cancelled' ? styles.statusCancelled : styles.statusCompleted]}>
+            <Text style={[styles.statusText, (item.status === 'confirmed' || item.status === 'arrived') ? styles.statusTextPending : item.status === 'cancelled' ? styles.statusTextCancelled : styles.statusTextCompleted]}>
               {item.status.toUpperCase()}
             </Text>
           </View>
         </View>
 
         <View style={styles.cardBody}>
-          <Text style={styles.timeText}>{item.slot.date} | {item.slot.start_time.slice(0, 5)}</Text>
-          <Text style={styles.priceText}>Fee: ₹10.00</Text>
+          <Text style={styles.timeText}>{item.slot_date} | {String(item.slot_start || '').slice(0, 5)}</Text>
+          <Text style={styles.priceText}>Fee: ₹{Number(item.booking_fee || item.amount_paid_now || 0).toFixed(2)}</Text>
         </View>
 
         <View style={styles.cardFooter}>
