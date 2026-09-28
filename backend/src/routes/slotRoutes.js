@@ -87,27 +87,14 @@ router.patch('/:slotId/deactivate', authenticate, async (req, res) => {
     await requirePumpOwner(req);
     await ensureOwnerCanManageSlot(req.user.sub, req.params.slotId);
 
-    const { reason, resume_time } = req.body;
+    const { reason } = req.body;
 
     const payload = {
       is_deactivated: true,
-      status: 'deactivated',
       deactivation_reason: reason || 'Temporarily paused',
-      resume_time: resume_time || null,
-      deactivated_by: req.user.sub,
-      deactivated_at: new Date().toISOString(),
     };
 
-    let update = await supabase.from('slots').update(payload).eq('id', req.params.slotId).select('*').single();
-
-    if (update.error && /column .*resume_time|column .*deactivated_by/i.test(update.error.message || '')) {
-      const fallback = {
-        is_deactivated: true,
-        status: 'deactivated',
-        deactivation_reason: reason || 'Temporarily paused',
-      };
-      update = await supabase.from('slots').update(fallback).eq('id', req.params.slotId).select('*').single();
-    }
+    const update = await supabase.from('slots').update(payload).eq('id', req.params.slotId).select('*').single();
 
     if (update.error) throw update.error;
     return res.json(update.data);
@@ -122,30 +109,15 @@ router.patch('/:slotId/activate', authenticate, async (req, res) => {
     await requirePumpOwner(req);
     await ensureOwnerCanManageSlot(req.user.sub, req.params.slotId);
 
-    let update = await supabase
+    const update = await supabase
       .from('slots')
       .update({
         is_deactivated: false,
-        status: 'open',
         deactivation_reason: null,
-        resume_time: null,
       })
       .eq('id', req.params.slotId)
       .select('*')
       .single();
-
-    if (update.error && /column .*resume_time/i.test(update.error.message || '')) {
-      update = await supabase
-        .from('slots')
-        .update({
-          is_deactivated: false,
-          status: 'open',
-          deactivation_reason: null,
-        })
-        .eq('id', req.params.slotId)
-        .select('*')
-        .single();
-    }
 
     if (update.error) throw update.error;
     return res.json(update.data);
@@ -233,24 +205,10 @@ router.post('/bulk-deactivate', authenticate, async (req, res) => {
       .update({
         is_deactivated: true,
         deactivation_reason: reason,
-        deactivated_by: req.user.sub,
       })
       .in('id', slotIds);
 
-    if (updateResult.error && !/column .*deactivated_by/i.test(updateResult.error.message || '')) {
-      throw updateResult.error;
-    }
-
-    if (updateResult.error && /column .*deactivated_by/i.test(updateResult.error.message || '')) {
-      const fallbackUpdate = await supabase
-        .from('slots')
-        .update({
-          is_deactivated: true,
-          deactivation_reason: reason,
-        })
-        .in('id', slotIds);
-      if (fallbackUpdate.error) throw fallbackUpdate.error;
-    }
+    if (updateResult.error) throw updateResult.error;
 
     const { data: cancelled, error: cancelErr } = await supabase
       .from('bookings')

@@ -110,15 +110,13 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
     const y = today.getUTCFullYear();
     const m = String(today.getUTCMonth() + 1).padStart(2, '0');
     const d = String(today.getUTCDate()).padStart(2, '0');
-    const startIso = `${y}-${m}-${d}T00:00:00`;
-    const endIso = `${y}-${m}-${d}T23:59:59`;
+    const todayDate = `${y}-${m}-${d}`;
 
     const { data: slots, error: slotsErr } = await supabase
       .from('slots')
       .select('id, capacity, booked_count, start_time, end_time')
       .eq('pump_id', pump.id)
-      .gte('start_time', startIso)
-      .lte('start_time', endIso);
+      .eq('slot_date', todayDate);
     if (slotsErr) throw slotsErr;
 
     const slotIds = (slots || []).map((s) => s.id);
@@ -258,23 +256,28 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     // Fetch slots for the pump on that date
     const { data: slots, error: slotsErr } = await supabase
       .from('slots')
-      .select('id, start_time, end_time, capacity, booked_count, status, is_deactivated, deactivation_reason, resume_time, slot_date')
+      .select('id, start_time, end_time, capacity, booked_count, is_deactivated, deactivation_reason, slot_date')
       .eq('pump_id', pump.id)
       .eq('slot_date', date)
       .order('start_time', { ascending: true });
 
     if (slotsErr) throw slotsErr;
 
-    // Normalise status field
+    // Derive status — the slots table has no status column, so compute it
+    const now = new Date();
     const enriched = (slots || []).map((slot) => {
-      let st = slot.status;
+      const booked = slot.booked_count || 0;
+      const capacity = slot.capacity || 5;
+      let st;
       if (slot.is_deactivated) st = 'deactivated';
-      else if (!st || st === 'open') st = 'open';
+      else if (booked >= capacity) st = 'full';
+      else if (new Date(`${slot.slot_date}T${slot.start_time}`).getTime() < now.getTime()) st = 'expired';
+      else st = 'open';
       return {
         ...slot,
         status: st,
-        booked_count: slot.booked_count || 0,
-        capacity: slot.capacity || 5,
+        booked_count: booked,
+        capacity,
       };
     });
 

@@ -4,7 +4,7 @@
 !.env.*.example
 
 # The Railway credential shared for this workspace
-.claude/skills/1.txt
+.claude/
 
 # Dependencies and generated application output
 **/node_modules/
