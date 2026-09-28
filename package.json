@@ -1,0 +1,11 @@
+{
+  "name": "fuel-on-go-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fuel on Go root deployment wrapper",
+  "scripts": {
+    "postinstall": "npm --prefix backend install",
+    "build": "npm --prefix backend install",
+    "start": "node backend/src/index.js"
+  }
+}

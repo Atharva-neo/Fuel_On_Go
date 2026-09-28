@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm --prefix backend install"
+
+[deploy]
+startCommand = "node backend/src/index.js"
+healthcheckPath = "/ready"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
