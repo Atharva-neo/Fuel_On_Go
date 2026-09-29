@@ -397,7 +397,11 @@ export default function HomeScreen({ navigation }: any) {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.resultRow} onPress={() => onResultSelect(item)}>
-                <Text style={styles.resultIcon}>{item.type === 'pump' ? '?' : '??'}</Text>
+                <MaterialCommunityIcons
+                  name={item.type === 'pump' ? 'gas-station' : 'map-marker-outline'}
+                  size={20}
+                  color="#0A0A0A"
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultTitle}>{item.title}</Text>
                   <Text style={styles.resultSub} numberOfLines={1}>
@@ -632,9 +636,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-  },
-  resultIcon: {
-    fontSize: 20,
   },
   resultTitle: {
     color: '#0f172a',
