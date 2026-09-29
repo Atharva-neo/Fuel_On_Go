@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
@@ -27,7 +26,6 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   const [activeTab, setActiveTab] = useState<'Today' | 'Tomorrow'>('Today');
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [cngAmount, setCngAmount] = useState(8);
   const [fuelPaymentMethod, setFuelPaymentMethod] = useState<'cash' | 'upi'>('cash');
   
   const token = useAuthStore((s) => s.token);
@@ -103,13 +101,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     return groups;
   }, [filteredSlots]);
 
-  const calc = useMemo(() => {
-    const price = Number(pump?.cng_price_per_kg || 89.5);
-    const total = cngAmount * price;
-    const fee = Number((total * 0.1).toFixed(2));
-    const remaining = Number((total - fee).toFixed(2));
-    return { price, total, fee, remaining };
-  }, [cngAmount, pump?.cng_price_per_kg]);
+  const price = Number(pump?.cng_price_per_kg || 89.5);
 
   if (loading || !pump) {
     return (
@@ -208,23 +200,12 @@ export default function PumpDetailScreen({ route, navigation }: any) {
                 <Text style={styles.sheetText}>
                   Slot: {String(selectedSlot.start_time).slice(0, 5)} - {String(selectedSlot.end_time).slice(0, 5)}
                 </Text>
-                <Text style={styles.sheetText}>Price per kg: ₹{calc.price.toFixed(2)}</Text>
-                <Text style={[styles.sheetText, { marginTop: 8 }]}>How much CNG do you want?</Text>
-                <Slider
-                  minimumValue={1}
-                  maximumValue={20}
-                  step={1}
-                  value={cngAmount}
-                  onValueChange={(v) => setCngAmount(v)}
-                  minimumTrackTintColor="#00C896"
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#00C896"
-                />
-                <Text style={styles.sheetText}>Currently selected: {cngAmount} kg</Text>
-                <Text style={styles.sheetText}>Estimated cost: ₹{calc.total.toFixed(2)}</Text>
-                <Text style={styles.sheetText}>Booking fee (10%): ₹{calc.fee.toFixed(2)}</Text>
-                <Text style={styles.sheetText}>Remaining at pump: ₹{calc.remaining.toFixed(2)}</Text>
-                <Text style={[styles.sheetText, { marginTop: 8 }]}>Pay remaining at pump via:</Text>
+                <Text style={styles.sheetText}>Price per kg: ₹{price.toFixed(2)}</Text>
+                <Text style={[styles.sheetNote, { marginTop: 8 }]}>
+                  You'll fill up to full tank at the pump — the amount depends on your
+                  vehicle, so it's settled there. This booking fee just secures your slot.
+                </Text>
+                <Text style={[styles.sheetText, { marginTop: 8 }]}>Pay the fuel amount at pump via:</Text>
                 <View style={styles.radioRow}>
                   <TouchableOpacity onPress={() => setFuelPaymentMethod('cash')} style={styles.radioBtn}>
                     <Text>{fuelPaymentMethod === 'cash' ? '◉' : '○'} Cash at pump</Text>
@@ -240,15 +221,11 @@ export default function PumpDetailScreen({ route, navigation }: any) {
                     navigation.navigate('Payment', {
                       pump,
                       slot: selectedSlot,
-                      cng_amount_kg: cngAmount,
-                      booking_fee: calc.fee,
-                      total_estimated: calc.total,
-                      remaining_amount: calc.remaining,
                       fuel_payment_method: fuelPaymentMethod,
                     });
                   }}
                 >
-                  <Text style={styles.confirmText}>Confirm & Pay ₹{calc.fee.toFixed(2)}</Text>
+                  <Text style={styles.confirmText}>Confirm & Pay ₹50</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -434,6 +411,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
   sheetText: { color: '#334155', marginBottom: 4 },
+  sheetNote: { color: '#64748B', fontSize: 13, lineHeight: 18, marginBottom: 4 },
   radioRow: { flexDirection: 'row', gap: 10, marginVertical: 8 },
   radioBtn: { paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8 },
   confirmBtn: {

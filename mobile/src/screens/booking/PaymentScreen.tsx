@@ -15,8 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 const BOOKING_FEE = 50; // Fixed ₹50 booking fee
 
 export default function PaymentScreen({ route, navigation }: any) {
-  const { pump, slot } = route.params || {};
-  const [paymentType, setPaymentType] = useState<'partial' | 'full'>('partial');
+  const { pump, slot, fuel_payment_method } = route.params || {};
   const [processing, setProcessing] = useState(false);
 
   if (!pump || !slot) {
@@ -30,10 +29,7 @@ export default function PaymentScreen({ route, navigation }: any) {
     );
   }
 
-  const cngPrice = Number(pump?.cng_price_per_kg || 89.5);
-  const fullAmount = Number((8 * cngPrice).toFixed(2)); // estimate for display
-  const paidNow = paymentType === 'partial' ? BOOKING_FEE : fullAmount;
-  const remainingAtPump = paymentType === 'partial' ? fullAmount - BOOKING_FEE : 0;
+  const paymentMethod: 'cash' | 'upi' = fuel_payment_method === 'upi' ? 'upi' : 'cash';
 
   const slotDate = slot?.slot_date || slot?.date || '';
   const slotStart = String(slot?.start_time || slot?.slot_start || '').slice(0, 5);
@@ -52,11 +48,11 @@ export default function PaymentScreen({ route, navigation }: any) {
         slot_start: slotStart,
         slot_end: slotEnd,
         booking_fee: BOOKING_FEE,
-        total_estimated: fullAmount,
-        amount_paid_now: paidNow,
-        pending_amount: remainingAtPump,
-        fuel_payment_method: 'cash',
-        payment_option: paymentType,
+        total_estimated: 0,
+        amount_paid_now: BOOKING_FEE,
+        pending_amount: 0,
+        fuel_payment_method: paymentMethod,
+        payment_option: 'partial',
       });
 
       navigation.navigate('BookingSuccess', {
@@ -67,8 +63,8 @@ export default function PaymentScreen({ route, navigation }: any) {
           slot_date: slotDate,
           slot_start: slotStart,
           slot_end: slotEnd,
-          amount_paid_now: paidNow,
-          pending_amount: remainingAtPump,
+          amount_paid_now: BOOKING_FEE,
+          pending_amount: 0,
         },
       });
     } catch (error: any) {
@@ -105,65 +101,21 @@ export default function PaymentScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        {/* Payment Options */}
-        <Text style={styles.sectionTitle}>Select Payment Option</Text>
-
-        <TouchableOpacity
-          style={[styles.optionCard, paymentType === 'partial' && styles.optionSelected]}
-          onPress={() => setPaymentType('partial')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.optionLeft}>
-            <View style={[styles.radio, paymentType === 'partial' && styles.radioSelected]}>
-              {paymentType === 'partial' && <View style={styles.radioDot} />}
-            </View>
-            <View>
-              <Text style={styles.optionTitle}>Pay ₹{BOOKING_FEE} Now</Text>
-              <Text style={styles.optionSub}>Remaining ₹{remainingAtPump.toFixed(0)} to be paid at pump</Text>
-            </View>
-          </View>
-          {paymentType === 'partial' && (
-            <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedText}>Recommended</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.optionCard, paymentType === 'full' && styles.optionSelected]}
-          onPress={() => setPaymentType('full')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.optionLeft}>
-            <View style={[styles.radio, paymentType === 'full' && styles.radioSelected]}>
-              {paymentType === 'full' && <View style={styles.radioDot} />}
-            </View>
-            <View>
-              <Text style={styles.optionTitle}>Pay Full Amount ₹{fullAmount.toFixed(2)}</Text>
-              <Text style={styles.optionSub}>Nothing extra at pump</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
         {/* Bill Summary */}
-        <Text style={styles.sectionTitle}>Bill Summary</Text>
+        <Text style={styles.sectionTitle}>Booking Fee</Text>
         <View style={styles.billCard}>
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Estimated CNG cost</Text>
-            <Text style={styles.billValue}>₹{fullAmount.toFixed(2)}</Text>
-          </View>
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Booking fee (secured)</Text>
+            <Text style={styles.billLabel}>Slot booking fee</Text>
             <Text style={styles.billValue}>₹{BOOKING_FEE.toFixed(2)}</Text>
           </View>
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Pay at pump</Text>
-            <Text style={styles.billValue}>₹{remainingAtPump.toFixed(2)}</Text>
+            <Text style={styles.billLabel}>CNG fill amount</Text>
+            <Text style={styles.billValue}>Pay at pump ({paymentMethod === 'upi' ? 'UPI' : 'Cash'})</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.billRow}>
             <Text style={styles.billTotal}>Pay Now</Text>
-            <Text style={styles.billTotalValue}>₹{paidNow.toFixed(2)}</Text>
+            <Text style={styles.billTotalValue}>₹{BOOKING_FEE.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -189,7 +141,7 @@ export default function PaymentScreen({ route, navigation }: any) {
             </View>
           ) : (
             <Text style={styles.payText}>
-              Simulate Payment · ₹{paidNow.toFixed(2)}
+              Simulate Payment · ₹{BOOKING_FEE.toFixed(2)}
             </Text>
           )}
         </TouchableOpacity>

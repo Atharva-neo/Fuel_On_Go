@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -42,10 +42,13 @@ export default function BookingSuccessScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Checkmark */}
         <Animated.View style={[styles.check, { transform: [{ scale: checkScale }] }]}>
-          <CheckIcon size={48} color={colors.white} />
+          <CheckIcon size={26} color={colors.white} />
         </Animated.View>
 
         <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
@@ -71,7 +74,7 @@ export default function BookingSuccessScreen() {
           <View style={styles.qrContainer}>
             <QRCode
               value={booking.qr_token}
-              size={220}
+              size={150}
               color="#000"
               backgroundColor="#fff"
             />
@@ -105,51 +108,51 @@ export default function BookingSuccessScreen() {
             </Button>
           </View>
         </Animated.View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.md },
+  container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.md },
   check: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   content: { width: '100%', alignItems: 'center' },
   title: {
-    fontSize: fontSize.xxl,
+    fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 2,
   },
-  subtitle: { fontSize: fontSize.base, color: colors.textSecondary, marginBottom: 20 },
-  summaryCard: { width: '100%', gap: 6, marginBottom: 20 },
-  summaryPump: { fontSize: fontSize.base, fontWeight: '800', color: colors.textPrimary },
+  subtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: 12 },
+  summaryCard: { width: '100%', gap: 4, marginBottom: 12, padding: 12 },
+  summaryPump: { fontSize: fontSize.sm, fontWeight: '800', color: colors.textPrimary },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  summarySlot: { fontSize: fontSize.sm, color: colors.textSecondary },
-  summaryPaid: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  summarySlot: { fontSize: fontSize.xs, color: colors.textSecondary },
+  summaryPaid: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '600' },
   qrContainer: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,
-    padding: 20,
+    padding: 12,
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 24,
+    gap: 6,
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
   },
-  qrLabel: { fontSize: fontSize.sm, color: '#555', fontWeight: '600' },
+  qrLabel: { fontSize: fontSize.xs, color: '#555', fontWeight: '600' },
   qrRef: { fontSize: fontSize.xs, color: '#999' },
   buttonGroup: { width: '100%' },
 });
