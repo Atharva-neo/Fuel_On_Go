@@ -41,7 +41,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
       const pRes = await api.get(`/pumps/${pumpId}`);
       setPump(pRes.data);
       const sRes = await api.get(`/slots/${pumpId}`);
-      setSlots(sRes.data);
+      setSlots(Array.isArray(sRes.data) ? sRes.data : []);
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Unable to load details.');
@@ -75,7 +75,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   const todayStr = format(now, 'yyyy-MM-dd');
 
   const filteredSlots = slots.filter((s) => {
-    const isToday = s.date === todayStr;
+    const isToday = (s.slot_date || s.date) === todayStr;
     if (activeTab === 'Today') return isToday;
     return !isToday;
   }).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
@@ -85,7 +85,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     const cap = Number(slot.capacity ?? slot.max_capacity ?? 0);
     const booked = Number(slot.booked_count ?? cap - Number(slot.available_capacity ?? cap));
     if (booked >= cap) return false;
-    const slotStart = new Date(slot.start_time || `${slot.date || slot.slot_date}T${slot.start_time}`);
+    const slotStart = new Date(`${slot.slot_date || slot.date}T${slot.start_time}`);
     if (Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime()) return false;
     return true;
   };
