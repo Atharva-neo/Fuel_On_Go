@@ -63,22 +63,8 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     setSheetVisible(true);
   };
 
-  if (loading || !pump) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#00C896" />
-      </View>
-    );
-  }
-
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
-
-  const filteredSlots = slots.filter((s) => {
-    const isToday = (s.slot_date || s.date) === todayStr;
-    if (activeTab === 'Today') return isToday;
-    return !isToday;
-  }).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
 
   const isBookable = (slot: any) => {
     if (slot.status === 'deactivated' || slot.is_deactivated) return false;
@@ -89,6 +75,17 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     if (Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime()) return false;
     return true;
   };
+
+  // Hooks must run unconditionally on every render — computed here, before
+  // the loading/no-pump early return below, to avoid a "rendered more hooks
+  // than during the previous render" crash.
+  const filteredSlots = useMemo(() => {
+    return slots.filter((s) => {
+      const isToday = (s.slot_date || s.date) === todayStr;
+      if (activeTab === 'Today') return isToday;
+      return !isToday;
+    }).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+  }, [slots, activeTab, todayStr]);
 
   const bySection = useMemo(() => {
     const groups = {
@@ -112,6 +109,14 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     const remaining = Number((total - fee).toFixed(2));
     return { price, total, fee, remaining };
   }, [cngAmount, pump?.cng_price_per_kg]);
+
+  if (loading || !pump) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color="#00C896" />
+      </View>
+    );
+  }
 
   const openSlotsCount = (items: any[]) => items.filter((s) => isBookable(s)).length;
 
