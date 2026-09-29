@@ -269,6 +269,8 @@ export default function HomeScreen({ navigation }: any) {
   }, [searchText, pumps]);
 
   const onResultSelect = async (result: SearchResult) => {
+    setSelectedPump(null);
+
     if (result.type === 'pump') {
       setSearchVisible(false);
       setSearchText('');
