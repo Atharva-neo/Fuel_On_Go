@@ -119,19 +119,17 @@ export default function AdminDashboardScreen({ navigation }: any) {
       </View>
 
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
+        <View style={styles.statCardFull}>
           <Text style={styles.statLabel}>Today's Revenue</Text>
-          <Text style={styles.statValue}>₹{Number(stats?.revenue_collected || 0).toFixed(2)}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Bookings</Text>
-          <Text style={styles.statValueHighlight}>{Number(stats?.booked || 0)}</Text>
+          <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+            ₹{Number(stats?.revenue_collected || 0).toFixed(2)}
+          </Text>
         </View>
       </View>
       <View style={[styles.statsGrid, { paddingTop: 0 }]}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Pending at Pump</Text>
-          <Text style={styles.statValue}>₹{Number(stats?.pending_at_pump || 0).toFixed(2)}</Text>
+          <Text style={styles.statLabel}>Total Bookings</Text>
+          <Text style={styles.statValueHighlight}>{Number(stats?.booked || 0)}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>No Shows</Text>
@@ -288,6 +286,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#111111',
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  statCardFull: {
+    flex: 1,
+    backgroundColor: '#111111',
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
