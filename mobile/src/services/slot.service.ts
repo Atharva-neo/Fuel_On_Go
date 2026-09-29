@@ -40,6 +40,13 @@ export const slotService = {
     return data;
   },
 
+  async updateTime(slotId: string, startTime: string) {
+    const { data } = await api.patch(`/slots/${slotId}/time`, {
+      start_time: startTime,
+    });
+    return data;
+  },
+
   async bulkDeactivate(payload: {
     pump_id: string;
     from_time: string;

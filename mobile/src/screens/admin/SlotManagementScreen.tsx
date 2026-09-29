@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import api from '../../config/api';
 import { AlertIcon } from '../../components/ui/Icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const DATES = [
   { label: 'Today', value: 0 },
@@ -44,6 +45,21 @@ function formatTime(isoString: string) {
   });
 }
 
+function parseHM(hms: string): [number, number] {
+  const [h, m] = String(hms || '00:00').split(':').map((n) => Number(n) || 0);
+  return [h, m];
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+function to12Hour(h: number, m: number) {
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${pad2(m)} ${period}`;
+}
+
 const REASON_CHIPS = [
   'CNG supply over',
   'Maintenance',
@@ -61,6 +77,9 @@ export default function SlotManagementScreen() {
   const [reason, setReason] = useState('');
   const [resumeTime, setResumeTime] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editTimeModal, setEditTimeModal] = useState<any>(null);
+  const [startH, setStartH] = useState(0);
+  const [startM, setStartM] = useState(0);
 
   const fetchSlots = async () => {
     setLoading(true);
@@ -139,6 +158,42 @@ export default function SlotManagementScreen() {
     }
   };
 
+  const openEditTime = (slot: any) => {
+    const [sh, sm] = parseHM(slot.start_time);
+    setStartH(sh);
+    setStartM(sm);
+    setEditTimeModal(slot);
+  };
+
+  const stepStart = (delta: number) => {
+    let total = startH * 60 + startM + delta;
+    total = ((total % 1440) + 1440) % 1440; // wrap 0-1439
+    setStartH(Math.floor(total / 60));
+    setStartM(total % 60);
+  };
+
+  // Every slot is a fixed 30-minute duration, so the end time is always
+  // derived from the start -- there's nothing separate to set or get wrong.
+  const derivedEndTotal = (startH * 60 + startM + 30) % 1440;
+  const derivedEndH = Math.floor(derivedEndTotal / 60);
+  const derivedEndM = derivedEndTotal % 60;
+
+  const handleSaveTime = async () => {
+    const startTime = `${pad2(startH)}:${pad2(startM)}`;
+    setSaving(true);
+    try {
+      await api.patch(`/slots/${editTimeModal.id}/time`, {
+        start_time: startTime,
+      });
+      setEditTimeModal(null);
+      fetchSlots();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Failed to update slot time');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderSlotRow = (slot: any) => {
     const isActive = slot.status === 'open';
     const booked = slot.booked_count || 0;
@@ -152,9 +207,18 @@ export default function SlotManagementScreen() {
       >
         {/* Time + Toggle */}
         <View style={styles.slotHeader}>
-          <Text style={styles.slotTime}>
-            {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
-          </Text>
+          <TouchableOpacity
+            style={styles.slotTimeRow}
+            disabled={booked > 0}
+            onPress={() => openEditTime(slot)}
+          >
+            <Text style={styles.slotTime}>
+              {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
+            </Text>
+            {booked === 0 ? (
+              <MaterialCommunityIcons name="pencil-outline" size={16} color="#9CA3AF" />
+            ) : null}
+          </TouchableOpacity>
           <Switch
             value={isActive}
             onValueChange={() => handleToggle(slot)}
@@ -353,6 +417,64 @@ export default function SlotManagementScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Time Modal */}
+      <Modal
+        visible={!!editTimeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditTimeModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Slot Time</Text>
+            <Text style={styles.modalSlotTime}>
+              {to12Hour(startH, startM)} – {to12Hour(derivedEndH, derivedEndM)}
+            </Text>
+            <Text style={styles.modalHint}>Every slot is a fixed 30-minute window — set the start time and the end follows automatically.</Text>
+
+            <Text style={styles.modalLabel}>Start time</Text>
+            <View style={styles.timeStepperRow}>
+              <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(-30)}>
+                <Text style={styles.timeStepBtnText}>−30m</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(-5)}>
+                <Text style={styles.timeStepBtnText}>−5m</Text>
+              </TouchableOpacity>
+              <Text style={styles.timeDisplay}>{pad2(startH)}:{pad2(startM)}</Text>
+              <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(5)}>
+                <Text style={styles.timeStepBtnText}>+5m</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(30)}>
+                <Text style={styles.timeStepBtnText}>+30m</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>End time (auto)</Text>
+            <Text style={styles.timeDisplayReadonly}>{pad2(derivedEndH)}:{pad2(derivedEndM)}</Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setEditTimeModal(null)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveTimeBtn, saving && styles.btnDisabled]}
+                onPress={handleSaveTime}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -418,6 +540,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  slotTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   slotTime: {
     fontSize: 16,
@@ -572,6 +699,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 16,
   },
+  modalHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 4,
+  },
   chipsScroll: {
     flexGrow: 0,
     marginBottom: 4,
@@ -648,4 +781,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   btnDisabled: { opacity: 0.6 },
+  timeStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  timeStepBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#374151',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeStepBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  timeDisplay: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    minWidth: 64,
+    textAlign: 'center',
+  },
+  timeDisplayReadonly: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#374151',
+    paddingVertical: 10,
+    textAlign: 'center',
+  },
+  saveTimeBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#00C896',
+    alignItems: 'center',
+  },
 });
