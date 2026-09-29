@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
 // Catches JS errors thrown outside React's render cycle (event handlers,
 // unhandled promise rejections) that ErrorBoundary can't see, and shows
 // them instead of letting the app crash silently.
-const g: any = global as any;
+const g: any = globalThis as any;
 if (g.ErrorUtils && !g.__fuelOnGoErrorHandlerInstalled) {
   g.__fuelOnGoErrorHandlerInstalled = true;
   const defaultHandler = g.ErrorUtils.getGlobalHandler?.();
@@ -122,7 +122,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" backgroundColor="#0A0E1A" />
+        <StatusBar style="light" />
         <ErrorBoundary>
           <AppContent />
         </ErrorBoundary>

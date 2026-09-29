@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FAF6',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   markerContainer: {
     width: 24,
