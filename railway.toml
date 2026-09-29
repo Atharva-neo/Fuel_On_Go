@@ -4,7 +4,7 @@ buildCommand = "npm --prefix backend install"
 
 [deploy]
 startCommand = "node backend/src/index.js"
-healthcheckPath = "/ready"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
