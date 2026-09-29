@@ -73,7 +73,9 @@ export default function BookingDetailScreen({ route, navigation }: any) {
   const isPending = status === 'pending' || status === 'confirmed';
   const isCancelled = status === 'cancelled';
   const isCompleted = status === 'completed' || status === 'arrived';
-  const slotStart = new Date(slot?.start_time || `${slot?.slot_date || booking.slot_date}T${slot?.start_time || booking.slot_start}:00+05:30`);
+  const slotDateForCountdown = slot?.slot_date || booking.slot_date;
+  const slotTimeForCountdown = slot?.start_time || booking.slot_start;
+  const slotStart = new Date(`${slotDateForCountdown}T${slotTimeForCountdown}`);
   const countdownText = Number.isFinite(slotStart.getTime())
     ? formatDistanceToNowStrict(slotStart, { addSuffix: false })
     : '--';
@@ -88,9 +90,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
     pump_name: pump?.name,
     slot_start: slot?.start_time || booking.slot_start,
     slot_end: slot?.end_time || booking.slot_end,
-    cng_amount_kg: booking.cng_amount_kg,
     booking_fee_paid: booking.booking_fee,
-    remaining_amount: booking.remaining_amount || booking.pending_amount,
     fuel_payment_method: booking.fuel_payment_method,
   });
 
@@ -145,12 +145,8 @@ export default function BookingDetailScreen({ route, navigation }: any) {
             <Text style={styles.value}>₹{Number(booking.booking_fee || booking.amount_paid_now || 0).toFixed(2)}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>At pump</Text>
-            <Text style={styles.value}>₹{Number(booking.remaining_amount || booking.pending_amount || 0).toFixed(2)} ({booking.fuel_payment_method || 'cash'})</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>CNG booked</Text>
-            <Text style={styles.value}>{Number(booking.cng_amount_kg || 0)} kg</Text>
+            <Text style={styles.label}>Fuel payment at pump</Text>
+            <Text style={styles.value}>{booking.fuel_payment_method === 'upi' ? 'UPI' : 'Cash'}</Text>
           </View>
         </View>
         <View style={styles.countdownRow}>
