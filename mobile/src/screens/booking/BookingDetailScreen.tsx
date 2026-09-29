@@ -11,6 +11,7 @@ import {
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon, LocationIcon } from '../../components/ui/Icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { formatDistanceToNowStrict } from 'date-fns';
 
@@ -152,7 +153,10 @@ export default function BookingDetailScreen({ route, navigation }: any) {
             <Text style={styles.value}>{Number(booking.cng_amount_kg || 0)} kg</Text>
           </View>
         </View>
-        <Text style={styles.timeLabel}>⏰ Starts in {countdownText}</Text>
+        <View style={styles.countdownRow}>
+          <MaterialCommunityIcons name="clock-outline" size={14} color="#71717A" />
+          <Text style={styles.timeLabel}>Starts in {countdownText}</Text>
+        </View>
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() =>
@@ -164,7 +168,8 @@ export default function BookingDetailScreen({ route, navigation }: any) {
             })
           }
         >
-          <Text style={styles.navBtnText}>🧭 Navigate to Pump</Text>
+          <MaterialCommunityIcons name="compass-outline" size={16} color="#fff" />
+          <Text style={styles.navBtnText}>Navigate to Pump</Text>
         </TouchableOpacity>
 
         {isPending && (
@@ -299,6 +304,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   timeValue: {
     fontSize: 16,
     fontWeight: '800',
@@ -377,7 +388,10 @@ const styles = StyleSheet.create({
   navBtn: {
     backgroundColor: '#111111',
     borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     paddingVertical: 14,
     marginBottom: 12,
   },

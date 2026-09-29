@@ -133,7 +133,7 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <CheckIcon size={24} color="#00C896" />
-                  <Text style={styles.modalTitle}>{result.type === 'success' ? '✅ Check-in Successful!' : 'Scan Result'}</Text>
+                  <Text style={styles.modalTitle}>{result.type === 'success' ? 'Check-in Successful!' : 'Scan Result'}</Text>
                 </View>
                 
                 <View style={styles.modalBody}>

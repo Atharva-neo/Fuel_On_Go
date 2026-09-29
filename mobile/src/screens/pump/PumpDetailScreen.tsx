@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon } from '../../components/ui/Icons';
@@ -169,14 +170,17 @@ export default function PumpDetailScreen({ route, navigation }: any) {
 
         <Text style={styles.sectionTitle}>Available Slots</Text>
         {[
-          { key: 'morning', label: '🌅 Morning', range: '(6AM - 12PM)', data: bySection.morning },
-          { key: 'afternoon', label: '☀️ Afternoon', range: '(12PM - 6PM)', data: bySection.afternoon },
-          { key: 'evening', label: '🌙 Evening', range: '(6PM - 10PM)', data: bySection.evening },
+          { key: 'morning', label: 'Morning', icon: 'weather-sunset-up', range: '(6AM - 12PM)', data: bySection.morning },
+          { key: 'afternoon', label: 'Afternoon', icon: 'white-balance-sunny', range: '(12PM - 6PM)', data: bySection.afternoon },
+          { key: 'evening', label: 'Evening', icon: 'weather-night', range: '(6PM - 10PM)', data: bySection.evening },
         ].map((section) => (
           <View key={section.key} style={styles.sectionBlock}>
-            <Text style={styles.sectionHeader}>
-              {section.label} · {openSlotsCount(section.data)} slots available
-            </Text>
+            <View style={styles.sectionHeaderRow}>
+              <MaterialCommunityIcons name={section.icon as any} size={16} color="#0A0A0A" />
+              <Text style={styles.sectionHeader}>
+                {section.label} · {openSlotsCount(section.data)} slots available
+              </Text>
+            </View>
             {section.data.length === 0 ? (
               <Text style={styles.empty}>No {section.key} slots available</Text>
             ) : (
@@ -380,11 +384,16 @@ const styles = StyleSheet.create({
   sectionBlock: {
     marginBottom: 20,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
   sectionHeader: {
     fontSize: 15,
     fontWeight: '800',
     color: '#0A0A0A',
-    marginBottom: 10,
   },
   empty: {
     color: '#A1A1AA',

@@ -19,6 +19,8 @@ import MapView from '../../components/MapView';
 import { pumpService, type Pump } from '../../services/pump.service';
 import { useLocationStore, type LocationBbox } from '../../store/locationStore';
 import { useAuthStore } from '../../store/authStore';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LocationIcon, SearchIcon } from '../../components/ui/Icons';
 
 const SCREEN_H = Dimensions.get('window').height;
 const SNAP_PEEK = SCREEN_H * 0.75;
@@ -144,8 +146,11 @@ function NearbyBottomSheet({
                   {pump.address}
                 </Text>
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>?? {formatDistance(pump.distance_km)}</Text>
-                  <Text style={styles.metaText}>? ?{pump.cng_price_per_kg}/kg</Text>
+                  <View style={styles.metaItem}>
+                    <LocationIcon size={12} color="#5f6368" />
+                    <Text style={styles.metaText}>{formatDistance(pump.distance_km)}</Text>
+                  </View>
+                  <Text style={styles.metaText}>₹{pump.cng_price_per_kg}/kg</Text>
                   <Text style={[styles.metaText, { color: '#0f9d58', fontWeight: '700' }]}>
                     {pump.available_slots_today ?? 0} slots
                   </Text>
@@ -318,7 +323,7 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchVisible(true)}>
-          <Text style={styles.searchIcon}>??</Text>
+          <SearchIcon size={20} color="#0A0A0A" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -331,7 +336,7 @@ export default function HomeScreen({ navigation }: any) {
             ])
           }
         >
-          <Text style={styles.logoutIcon}>⎋</Text>
+          <MaterialCommunityIcons name="logout" size={18} color="#0A0A0A" />
         </TouchableOpacity>
       </View>
 
@@ -567,6 +572,11 @@ const styles = StyleSheet.create({
   metaText: {
     color: '#475569',
     fontSize: 11,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   bookBtn: {
     backgroundColor: '#111827',

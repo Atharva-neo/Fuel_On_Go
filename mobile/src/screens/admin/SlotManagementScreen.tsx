@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import api from '../../config/api';
+import { AlertIcon } from '../../components/ui/Icons';
 
 const DATES = [
   { label: 'Today', value: 0 },
@@ -44,11 +45,11 @@ function formatTime(isoString: string) {
 }
 
 const REASON_CHIPS = [
-  '🛢️ CNG supply over',
-  '🔧 Maintenance',
-  '🚛 Truck delivery pending',
-  '⚡ Technical issue',
-  '🌧️ Weather conditions',
+  'CNG supply over',
+  'Maintenance',
+  'Truck delivery pending',
+  'Technical issue',
+  'Weather conditions',
 ];
 
 export default function SlotManagementScreen() {
@@ -200,7 +201,10 @@ export default function SlotManagementScreen() {
         {/* Deactivation reason banner */}
         {slot.status === 'deactivated' && slot.deactivation_reason ? (
           <View style={styles.reasonBox}>
-            <Text style={styles.reasonText}>⚠️ {slot.deactivation_reason}</Text>
+            <View style={styles.reasonRow}>
+              <AlertIcon size={12} color="#F59E0B" />
+              <Text style={styles.reasonText}>{slot.deactivation_reason}</Text>
+            </View>
             {slot.resume_time ? (
               <Text style={styles.resumeText}>Resumes: {slot.resume_time}</Text>
             ) : null}
@@ -481,7 +485,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245,158,11,0.3)',
   },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   reasonText: {
+    flex: 1,
     color: '#F59E0B',
     fontSize: 12,
     fontWeight: '500',

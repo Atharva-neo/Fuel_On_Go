@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { bookingService } from '../../services/booking.service';
-import { ArrowLeftIcon } from '../../components/ui/Icons';
+import { ArrowLeftIcon, CalendarIcon, InfoIcon } from '../../components/ui/Icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BOOKING_FEE = 50; // Fixed ₹50 booking fee
 
@@ -96,9 +97,12 @@ export default function PaymentScreen({ route, navigation }: any) {
           <Text style={styles.pumpName}>{pump.name}</Text>
           <Text style={styles.pumpAddress}>{pump.address}</Text>
           <View style={styles.divider} />
-          <Text style={styles.slotTime}>
-            📅 {slotDate}  ·  🕒 {slotStart} – {slotEnd}
-          </Text>
+          <View style={styles.slotTimeRow}>
+            <CalendarIcon size={14} color="#00C896" />
+            <Text style={styles.slotTime}>
+              {slotDate}  ·  {slotStart} – {slotEnd}
+            </Text>
+          </View>
         </View>
 
         {/* Payment Options */}
@@ -164,8 +168,9 @@ export default function PaymentScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.simulationNote}>
+          <InfoIcon size={14} color="#92400E" />
           <Text style={styles.simulationNoteText}>
-            ⚡ Payment simulation enabled — no real charge will occur.
+            Payment simulation enabled — no real charge will occur.
           </Text>
         </View>
       </ScrollView>
@@ -218,6 +223,7 @@ const styles = StyleSheet.create({
   pumpName: { fontSize: 20, fontWeight: '900', color: '#0A0A0A', marginBottom: 4, letterSpacing: -0.5 },
   pumpAddress: { fontSize: 14, color: '#71717A', marginBottom: 12 },
   divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginVertical: 12 },
+  slotTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   slotTime: { fontSize: 15, color: '#00C896', fontWeight: '700' },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0A0A0A', marginBottom: 12, letterSpacing: -0.3 },
   optionCard: {
@@ -251,10 +257,11 @@ const styles = StyleSheet.create({
   billTotal: { color: '#0A0A0A', fontSize: 16, fontWeight: '800' },
   billTotalValue: { color: '#0A0A0A', fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   simulationNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 12, padding: 12,
     borderWidth: 1, borderColor: 'rgba(245,158,11,0.2)',
   },
-  simulationNoteText: { color: '#92400E', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  simulationNoteText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600' },
   footer: {
     backgroundColor: '#FFFFFF', padding: 24, paddingBottom: 40,
     borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)',

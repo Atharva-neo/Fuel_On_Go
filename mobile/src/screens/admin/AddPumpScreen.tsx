@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { pumpService } from '../../services/pump.service';
+import { LocationIcon } from '../../components/ui/Icons';
 
 function mapHtml(lat: number, lng: number) {
   return `<!DOCTYPE html>
@@ -118,7 +119,10 @@ export default function AddPumpScreen({ navigation }: any) {
         <Text style={styles.mapBtnText}>Pick Location on Map</Text>
       </TouchableOpacity>
       {lat != null && lng != null ? (
-        <Text style={styles.coord}>📍 Location selected: {lat.toFixed(4)}, {lng.toFixed(4)}</Text>
+        <View style={styles.coordRow}>
+          <LocationIcon size={12} color="#00C896" />
+          <Text style={styles.coord}>Location selected: {lat.toFixed(4)}, {lng.toFixed(4)}</Text>
+        </View>
       ) : (
         <Text style={styles.coord}>Tap map to select location</Text>
       )}
@@ -215,9 +219,14 @@ const styles = StyleSheet.create({
     color: '#0369a1',
     fontWeight: '700',
   },
+  coordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
   coord: {
     color: '#334155',
-    marginBottom: 10,
   },
   timeRow: {
     flexDirection: 'row',
