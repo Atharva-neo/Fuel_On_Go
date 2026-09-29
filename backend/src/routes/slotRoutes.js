@@ -163,6 +163,70 @@ router.patch('/:slotId/capacity', authenticate, async (req, res) => {
   }
 });
 
+router.patch('/:slotId/time', authenticate, async (req, res) => {
+  try {
+    await requirePumpOwner(req);
+    await ensureOwnerCanManageSlot(req.user.sub, req.params.slotId);
+
+    const timeRe = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    const startTime = String(req.body.start_time || '').trim();
+
+    if (!timeRe.test(startTime)) {
+      return res.status(400).json({ error: 'start_time must be in HH:MM format' });
+    }
+
+    // Every slot is a fixed 30-minute duration -- end_time is derived, not
+    // client-supplied, so slots can never be created with mismatched lengths.
+    const [h, m] = startTime.split(':').map(Number);
+    const totalMinutes = h * 60 + m + 30;
+    if (totalMinutes >= 24 * 60) {
+      return res.status(400).json({ error: 'A 30-minute slot starting here would run past midnight' });
+    }
+    const endTime = `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+
+    const { data: slot, error: slotErr } = await supabase
+      .from('slots')
+      .select('id, pump_id, slot_date, booked_count')
+      .eq('id', req.params.slotId)
+      .single();
+    if (slotErr) throw slotErr;
+
+    if (slot.booked_count > 0) {
+      return res.status(400).json({ error: 'Cannot change timing for a slot that already has bookings' });
+    }
+
+    const { data: siblingSlots, error: siblingErr } = await supabase
+      .from('slots')
+      .select('id, start_time, end_time')
+      .eq('pump_id', slot.pump_id)
+      .eq('slot_date', slot.slot_date)
+      .neq('id', slot.id);
+    if (siblingErr) throw siblingErr;
+
+    const overlaps = (siblingSlots || []).some((s) => {
+      const sStart = String(s.start_time).slice(0, 5);
+      const sEnd = String(s.end_time).slice(0, 5);
+      return startTime < sEnd && endTime > sStart;
+    });
+    if (overlaps) {
+      return res.status(400).json({ error: 'This time overlaps with another slot on the same day' });
+    }
+
+    const { data, error } = await supabase
+      .from('slots')
+      .update({ start_time: startTime, end_time: endTime })
+      .eq('id', req.params.slotId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return res.json(data);
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
+  }
+});
+
 router.post('/bulk-deactivate', authenticate, async (req, res) => {
   try {
     await requirePumpOwner(req);
