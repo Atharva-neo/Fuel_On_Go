@@ -42,13 +42,26 @@ export default function AdminBookingsScreen({ navigation }: any) {
       <View style={styles.header}>
         <Text style={styles.title}>Bookings</Text>
         <View style={styles.dateRow}>
-          <TouchableOpacity onPress={() => setDate(shiftDate(date, -1))}>
+          <TouchableOpacity
+            style={styles.dateBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            onPress={() => setDate(shiftDate(date, -1))}
+          >
             <Text style={styles.dateAction}>Yesterday</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setDate(isoDate(0))} disabled={isToday}>
+          <TouchableOpacity
+            style={styles.dateBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            onPress={() => setDate(isoDate(0))}
+            disabled={isToday}
+          >
             <Text style={[styles.date, isToday && styles.dateToday]}>{date}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setDate(shiftDate(date, 1))}>
+          <TouchableOpacity
+            style={styles.dateBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            onPress={() => setDate(shiftDate(date, 1))}
+          >
             <Text style={styles.dateAction}>Tomorrow</Text>
           </TouchableOpacity>
         </View>
@@ -102,6 +115,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  dateBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   dateAction: {
     color: '#00C896',
