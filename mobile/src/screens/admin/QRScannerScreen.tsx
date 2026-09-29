@@ -13,7 +13,20 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
-import { ArrowLeftIcon, CheckIcon } from '../../components/ui/Icons';
+import { ArrowLeftIcon, CheckIcon, AlertIcon, XIcon } from '../../components/ui/Icons';
+
+function formatSlotTime(raw: string | undefined) {
+  if (!raw) return '-';
+  // "HH:MM:SS - HH:MM:SS" -> "HH:MM - HH:MM"
+  return raw.replace(/(\d{2}:\d{2}):\d{2}/g, '$1');
+}
+
+function formatTimestamp(raw: string | undefined) {
+  if (!raw) return '-';
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return raw;
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 
 const { width } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
@@ -129,31 +142,97 @@ export default function QRScannerScreen({ navigation }: any) {
                 <ActivityIndicator size="large" color="#00C896" />
                 <Text style={styles.modalLoaderText}>Processing...</Text>
               </View>
-            ) : result ? (
+            ) : result?.type === 'success' ? (
               <>
                 <View style={styles.modalHeader}>
                   <CheckIcon size={24} color="#00C896" />
-                  <Text style={styles.modalTitle}>{result.type === 'success' ? 'Check-in Successful!' : 'Scan Result'}</Text>
+                  <Text style={styles.modalTitle}>Check-in Successful!</Text>
                 </View>
-                
+
                 <View style={styles.modalBody}>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Customer</Text>
-                    <Text style={styles.infoValue}>{result.customer_name || result.data?.customer_name || '-'}</Text>
+                    <Text style={styles.infoValue}>{result.customer_name || '-'}</Text>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Vehicle</Text>
-                    <Text style={styles.infoValue}>{result.vehicle_number || result.data?.vehicle_number || '-'}</Text>
+                    <Text style={styles.infoValue}>{result.vehicle_number || '-'}</Text>
                   </View>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Slot Time</Text>
-                    <Text style={styles.infoValue}>{result.slot_time || result.data?.slot_time || '-'}</Text>
+                    <Text style={styles.infoValue}>{formatSlotTime(result.slot_time)}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Collect at pump</Text>
-                    <Text style={styles.infoValue}>₹{Number(result.remaining_amount || result.data?.remaining_amount || 0).toFixed(2)}</Text>
+                    <Text style={styles.infoLabel}>Fuel payment</Text>
+                    <Text style={styles.infoValue}>{result.fuel_payment_method === 'upi' ? 'UPI' : 'Cash'} at pump</Text>
                   </View>
-                  
+
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
+                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : result?.type === 'wrong_pump' ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <AlertIcon size={24} color="#F59E0B" />
+                  <Text style={styles.modalTitle}>Wrong Pump</Text>
+                </View>
+                <View style={styles.modalBody}>
+                  <Text style={styles.errorMessage}>
+                    This customer's booking is for{' '}
+                    {result.data?.pump_name ? <Text style={{ fontWeight: '800' }}>{result.data.pump_name}</Text> : 'another pump'}
+                    , not this one. You can't check them in here.
+                  </Text>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
+                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : result?.type === 'already_scanned' ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <AlertIcon size={24} color="#F59E0B" />
+                  <Text style={styles.modalTitle}>Already Checked In</Text>
+                </View>
+                <View style={styles.modalBody}>
+                  <Text style={styles.errorMessage}>
+                    This booking was already checked in at {formatTimestamp(result.data?.arrived_at)}.
+                  </Text>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
+                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : result?.type === 'outside_window' ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <AlertIcon size={24} color="#F59E0B" />
+                  <Text style={styles.modalTitle}>
+                    {result.data?.code === 'TOO_EARLY' ? 'Too Early' : 'Slot Expired'}
+                  </Text>
+                </View>
+                <View style={styles.modalBody}>
+                  <Text style={styles.errorMessage}>
+                    {result.data?.code === 'TOO_EARLY'
+                      ? "This customer's slot hasn't started yet. Ask them to come back closer to their slot time."
+                      : 'This slot has already ended, so check-in is no longer available for this booking.'}
+                  </Text>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
+                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : result ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <XIcon size={24} color="#EF4444" />
+                  <Text style={styles.modalTitle}>Invalid QR Code</Text>
+                </View>
+                <View style={styles.modalBody}>
+                  <Text style={styles.errorMessage}>
+                    {result.data?.error || "This QR code doesn't match a valid booking."}
+                  </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
                     <Text style={styles.cancelBtnText}>Scan Next</Text>
                   </TouchableOpacity>
@@ -324,6 +403,12 @@ const styles = StyleSheet.create({
     color: '#0A0A0A',
     fontWeight: '800',
     fontSize: 15,
+  },
+  errorMessage: {
+    color: '#3F3F46',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 8,
   },
   confirmBtn: {
     backgroundColor: '#0A0A0A',
