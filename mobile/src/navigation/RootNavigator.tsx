@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import SplashScreen from '../screens/SplashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -70,7 +71,20 @@ const HomeStackNavigator = () => (
 );
 
 const UserTabs = () => (
-  <Tab.Navigator screenOptions={{ headerShown: false }}>
+  <Tab.Navigator
+    screenOptions={({ route }) => ({
+      headerShown: false,
+      tabBarActiveTintColor: '#00C896',
+      tabBarInactiveTintColor: '#71717A',
+      tabBarIcon: ({ color, size }) => {
+        let iconName: any;
+        if (route.name === 'Home') iconName = 'home-variant';
+        else if (route.name === 'MyBookings') iconName = 'text-box-multiple';
+        else if (route.name === 'Profile') iconName = 'account-circle';
+        return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+      },
+    })}
+  >
     <Tab.Screen
       name="Home"
       component={HomeStackNavigator}

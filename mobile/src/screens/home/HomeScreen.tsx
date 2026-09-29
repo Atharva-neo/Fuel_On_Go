@@ -316,7 +316,10 @@ export default function HomeScreen({ navigation }: any) {
 
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.locationPill} onPress={() => navigation.navigate('LocationSetup')}>
-          <Text style={styles.locationText}>?? {city}</Text>
+          <View style={styles.locationTitleRow}>
+            <LocationIcon size={12} color="#0A0A0A" />
+            <Text style={styles.locationText}>{city}</Text>
+          </View>
           <Text style={styles.locationSub} numberOfLines={1}>
             {displayName}
           </Text>
@@ -432,6 +435,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     width: '68%',
+  },
+  locationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   locationText: {
     color: '#0f172a',
