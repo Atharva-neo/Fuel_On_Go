@@ -1,7 +1,22 @@
+// adminRoutes.js — v2 (force redeploy: slot status computed in JS, not SQL)
 const express = require('express');
 const router  = express.Router();
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+
+// Helper: ensure date is always YYYY-MM-DD, strip any time component
+function safeDate(d) {
+  if (!d) {
+    const now = new Date();
+    const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    return ist.toISOString().split('T')[0];
+  }
+  // Accept "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DD"
+  return String(d).slice(0, 10);
+}
+
+// GET /api/admin/version — deploy verification
+router.get('/version', (_req, res) => res.json({ version: 2, deployed: new Date().toISOString() }));
 
 // ─── Middleware: pump owner or admin ─────────────────────────
 async function requireAdmin(req, res, next) {
@@ -54,7 +69,7 @@ router.post('/checkin', authenticate, requireAdmin, async (req, res) => {
 router.get('/stats', authenticate, requireAdmin, async (req, res) => {
   try {
     const { pump_id, date } = req.query;
-    const d = date || new Date().toISOString().split('T')[0];
+    const d = safeDate(date);
 
     let pumpId = pump_id;
     if (!pumpId) {
@@ -159,7 +174,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
 router.get('/bookings', authenticate, requireAdmin, async (req, res) => {
   try {
     const { pump_id, date, status } = req.query;
-    const d = date || new Date().toISOString().split('T')[0];
+    const d = safeDate(date);
 
     let query = supabase.from('bookings')
       .select('*, users(name,vehicle_number,trust_score), pumps(name)')
@@ -245,13 +260,8 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     if (pumpErr) throw pumpErr;
     if (!pump) return res.status(404).json({ error: 'No pump found for this account. Please register your pump first.' });
 
-    // Resolve date — default to today in IST
-    let date = req.query.date;
-    if (!date) {
-      const now = new Date();
-      const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-      date = ist.toISOString().split('T')[0];
-    }
+    // Resolve date — strip any time component, default to today IST
+    const date = safeDate(req.query.date);
 
     // Fetch slots for the pump on that date
     const { data: slots, error: slotsErr } = await supabase
