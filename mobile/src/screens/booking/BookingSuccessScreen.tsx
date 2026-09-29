@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -10,6 +11,7 @@ import { colors, fontSize, radius, spacing } from '../../theme/stitch';
 import type { MockBooking } from '../../mock/data';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { CheckIcon, CalendarIcon } from '../../components/ui/Icons';
 
 type SuccessNav = NativeStackNavigationProp<AppStackParamList, 'BookingSuccess'>;
 type SuccessRoute = RouteProp<AppStackParamList, 'BookingSuccess'>;
@@ -42,21 +44,27 @@ export default function BookingSuccessScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         {/* Checkmark */}
-        <Animated.Text style={[styles.check, { transform: [{ scale: checkScale }] }]}>
-          ✅
-        </Animated.Text>
+        <Animated.View style={[styles.check, { transform: [{ scale: checkScale }] }]}>
+          <CheckIcon size={48} color={colors.white} />
+        </Animated.View>
 
         <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
-          <Text style={styles.title}>Booking Confirmed! 🎉</Text>
+          <Text style={styles.title}>Booking Confirmed!</Text>
           <Text style={styles.subtitle}>Your slot is reserved</Text>
 
           {/* Summary */}
           <Card style={styles.summaryCard}>
             <Text style={styles.summaryPump}>{booking.pump_name}</Text>
-            <Text style={styles.summarySlot}>
-              📅 {booking.slot_date}, {booking.slot_start} – {booking.slot_end}
-            </Text>
-            <Text style={styles.summaryPaid}>💳 Paid: ₹{booking.amount_paid_now}</Text>
+            <View style={styles.summaryRow}>
+              <CalendarIcon size={14} color={colors.textSecondary} />
+              <Text style={styles.summarySlot}>
+                {booking.slot_date}, {booking.slot_start} – {booking.slot_end}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <MaterialCommunityIcons name="credit-card-outline" size={14} color={colors.primary} />
+              <Text style={styles.summaryPaid}>Paid: ₹{booking.amount_paid_now}</Text>
+            </View>
           </Card>
 
           {/* QR Code */}
@@ -105,7 +113,15 @@ export default function BookingSuccessScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.md },
-  check: { fontSize: 80, marginBottom: 16 },
+  check: {
+    width: 88,
+    height: 88,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   content: { width: '100%', alignItems: 'center' },
   title: {
     fontSize: fontSize.xxl,
@@ -117,6 +133,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: fontSize.base, color: colors.textSecondary, marginBottom: 20 },
   summaryCard: { width: '100%', gap: 6, marginBottom: 20 },
   summaryPump: { fontSize: fontSize.base, fontWeight: '800', color: colors.textPrimary },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   summarySlot: { fontSize: fontSize.sm, color: colors.textSecondary },
   summaryPaid: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
   qrContainer: {
