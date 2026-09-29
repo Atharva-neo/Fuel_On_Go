@@ -8,6 +8,12 @@ function isoDate(offset = 0) {
   return d.toISOString().slice(0, 10);
 }
 
+function shiftDate(isoStr: string, deltaDays: number) {
+  const d = new Date(`${isoStr}T00:00:00`);
+  d.setDate(d.getDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AdminBookingsScreen({ navigation }: any) {
   const [date, setDate] = useState(isoDate(0));
   const [bookings, setBookings] = useState<any[]>([]);
@@ -29,23 +35,27 @@ export default function AdminBookingsScreen({ navigation }: any) {
     load();
   }, [date]);
 
+  const isToday = date === isoDate(0);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Bookings</Text>
         <View style={styles.dateRow}>
-          <TouchableOpacity onPress={() => setDate(isoDate(-1))}>
+          <TouchableOpacity onPress={() => setDate(shiftDate(date, -1))}>
             <Text style={styles.dateAction}>Yesterday</Text>
           </TouchableOpacity>
-          <Text style={styles.date}>{date}</Text>
-          <TouchableOpacity onPress={() => setDate(isoDate(1))}>
+          <TouchableOpacity onPress={() => setDate(isoDate(0))} disabled={isToday}>
+            <Text style={[styles.date, isToday && styles.dateToday]}>{date}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setDate(shiftDate(date, 1))}>
             <Text style={styles.dateAction}>Tomorrow</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#0ea5e9" style={{ marginTop: 24 }} />
+        <ActivityIndicator color="#00C896" style={{ marginTop: 24 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
           {bookings.map((booking) => (
@@ -74,20 +84,19 @@ export default function AdminBookingsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#111827',
   },
   header: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    paddingTop: 56,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#111827',
   },
   title: {
-    color: '#0f172a',
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 24,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   dateRow: {
     flexDirection: 'row',
@@ -95,47 +104,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateAction: {
-    color: '#0284c7',
+    color: '#00C896',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 13,
   },
   date: {
-    color: '#0f172a',
+    color: '#9CA3AF',
     fontWeight: '700',
+    fontSize: 13,
+  },
+  dateToday: {
+    color: '#FFFFFF',
   },
   card: {
+    backgroundColor: '#1F2937',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    borderColor: '#374151',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
   },
   customer: {
-    color: '#0f172a',
+    color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 15,
   },
   meta: {
-    color: '#64748b',
+    color: '#9CA3AF',
     marginTop: 4,
+    fontSize: 13,
   },
   badge: {
-    marginTop: 8,
+    marginTop: 10,
     alignSelf: 'flex-start',
-    backgroundColor: '#e0f2fe',
+    backgroundColor: 'rgba(0,200,150,0.15)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeText: {
-    color: '#0369a1',
+    color: '#00C896',
     fontWeight: '700',
     textTransform: 'capitalize',
     fontSize: 12,
   },
   empty: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: '#6B7280',
     marginTop: 18,
   },
 });
