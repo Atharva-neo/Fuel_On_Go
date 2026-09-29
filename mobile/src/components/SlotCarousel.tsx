@@ -31,7 +31,7 @@ export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPr
     const cap = Number(slot.capacity ?? slot.max_capacity ?? 0);
     const booked = Number(slot.booked_count ?? cap - Number(slot.available_capacity ?? cap));
     if (booked >= cap) return false;
-    const slotStart = new Date(slot.start_time || `${slot.date || slot.slot_date}T${slot.start_time}`);
+    const slotStart = new Date(`${slot.slot_date || slot.date}T${slot.start_time}`);
     if (Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime()) return false;
     return true;
   };
@@ -43,7 +43,7 @@ export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPr
         const booked = Number(slot.booked_count ?? cap - Number(slot.available_capacity ?? cap));
         const left = Math.max(0, cap - booked);
         
-        const slotStart = new Date(slot.start_time || `${slot.date || slot.slot_date}T${slot.start_time}`);
+        const slotStart = new Date(`${slot.slot_date || slot.date}T${slot.start_time}`);
         const isPast = Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime();
         const isDeactivated = slot.status === 'deactivated' || slot.is_deactivated;
         const isFull = left <= 0;
@@ -123,12 +123,12 @@ const styles = StyleSheet.create({
     borderColor: '#E4E4E7',
   },
   slotPast: {
-    backgroundColor: '#FAFAFA',
-    borderColor: '#F4F4F5',
+    backgroundColor: '#F4F4F5',
+    borderColor: '#E4E4E7',
   },
   slotDeactivated: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FFEDD5',
+    backgroundColor: '#F4F4F5',
+    borderColor: '#E4E4E7',
   },
   timeText: {
     fontSize: 16,
