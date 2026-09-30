@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { pumpService } from '../../services/pump.service';
-import { LocationIcon } from '../../components/ui/Icons';
+import { LocationIcon, ArrowLeftIcon } from '../../components/ui/Icons';
 
 function mapHtml(lat: number, lng: number) {
   return `<!DOCTYPE html>
@@ -94,79 +94,104 @@ export default function AddPumpScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 28 }}>
-      <Text style={styles.title}>Register Pump</Text>
-
-      <Text style={styles.label}>Pump Name*</Text>
-      <TextInput style={styles.input} value={pumpName} onChangeText={setPumpName} />
-
-      <Text style={styles.label}>License Number*</Text>
-      <TextInput style={styles.input} value={licenseNumber} onChangeText={setLicenseNumber} />
-
-      <Text style={styles.label}>Address*</Text>
-      <TextInput style={styles.input} value={address} onChangeText={setAddress} />
-
-      <Text style={styles.label}>City*</Text>
-      <TextInput style={styles.input} value={city} onChangeText={setCity} />
-
-      <Text style={styles.label}>District*</Text>
-      <TextInput style={styles.input} value={district} onChangeText={setDistrict} />
-
-      <Text style={styles.label}>PIN Code</Text>
-      <TextInput style={styles.input} value={pinCode} onChangeText={setPinCode} keyboardType="number-pad" />
-
-      <TouchableOpacity style={styles.mapBtn} onPress={() => setMapVisible(true)}>
-        <Text style={styles.mapBtnText}>Pick Location on Map</Text>
-      </TouchableOpacity>
-      {lat != null && lng != null ? (
-        <View style={styles.coordRow}>
-          <LocationIcon size={12} color="#00C896" />
-          <Text style={styles.coord}>Location selected: {lat.toFixed(4)}, {lng.toFixed(4)}</Text>
-        </View>
-      ) : (
-        <Text style={styles.coord}>Tap map to select location</Text>
-      )}
-
-      <View style={styles.timeRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Opening Time*</Text>
-          <TextInput style={styles.input} value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Closing Time*</Text>
-          <TextInput style={styles.input} value={closingTime} onChangeText={setClosingTime} placeholder="22:00" />
-        </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ArrowLeftIcon size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Register Pump</Text>
       </View>
 
-      <Text style={styles.label}>Vehicles per slot</Text>
-      <View style={styles.stepper}>
-        <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => Math.max(1, v - 1))}>
-          <Text style={styles.stepText}>-</Text>
-        </TouchableOpacity>
-        <Text style={styles.stepValue}>{vehiclesPerSlot}</Text>
-        <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => v + 1)}>
-          <Text style={styles.stepText}>+</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
+          <Text style={styles.label}>Pump Name*</Text>
+          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={pumpName} onChangeText={setPumpName} />
 
-      <Text style={styles.label}>CNG Price (?/kg)</Text>
-      <TextInput style={styles.input} value={cngPrice} onChangeText={setCngPrice} keyboardType="decimal-pad" />
+          <Text style={styles.label}>License Number*</Text>
+          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={licenseNumber} onChangeText={setLicenseNumber} />
 
-      <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={onSubmit} disabled={saving}>
-        <Text style={styles.submitText}>{saving ? 'Registering...' : 'Register Pump'}</Text>
-      </TouchableOpacity>
+          <Text style={styles.label}>Address*</Text>
+          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={address} onChangeText={setAddress} />
+
+          <Text style={styles.label}>City*</Text>
+          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={city} onChangeText={setCity} />
+
+          <Text style={styles.label}>District*</Text>
+          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={district} onChangeText={setDistrict} />
+
+          <Text style={styles.label}>PIN Code</Text>
+          <TextInput
+            style={[styles.input, { marginBottom: 0 }]}
+            placeholderTextColor="#6B7280"
+            value={pinCode}
+            onChangeText={setPinCode}
+            keyboardType="number-pad"
+          />
+        </View>
+
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.mapBtn} onPress={() => setMapVisible(true)}>
+            <Text style={styles.mapBtnText}>Pick Location on Map</Text>
+          </TouchableOpacity>
+          {lat != null && lng != null ? (
+            <View style={styles.coordRow}>
+              <LocationIcon size={12} color="#00C896" />
+              <Text style={styles.coord}>Location selected: {lat.toFixed(4)}, {lng.toFixed(4)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.coordMuted}>Tap map to select location</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.timeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Opening Time*</Text>
+              <TextInput style={styles.input} placeholderTextColor="#6B7280" value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Closing Time*</Text>
+              <TextInput style={styles.input} placeholderTextColor="#6B7280" value={closingTime} onChangeText={setClosingTime} placeholder="22:00" />
+            </View>
+          </View>
+
+          <Text style={styles.label}>Vehicles per slot</Text>
+          <View style={styles.stepper}>
+            <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => Math.max(1, v - 1))}>
+              <Text style={styles.stepText}>−</Text>
+            </TouchableOpacity>
+            <Text style={styles.stepValue}>{vehiclesPerSlot}</Text>
+            <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => v + 1)}>
+              <Text style={styles.stepText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>CNG Price (₹/kg)</Text>
+          <TextInput
+            style={[styles.input, { marginBottom: 0 }]}
+            placeholderTextColor="#6B7280"
+            value={cngPrice}
+            onChangeText={setCngPrice}
+            keyboardType="decimal-pad"
+          />
+        </View>
+
+        <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={onSubmit} disabled={saving}>
+          <Text style={styles.submitText}>{saving ? 'Registering...' : 'Register Pump'}</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <Modal visible={mapVisible} animationType="slide" onRequestClose={() => setMapVisible(false)}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: '#111827' }}>
           <View style={styles.mapHeader}>
             <Text style={styles.mapHeaderTitle}>Tap map to set coordinates</Text>
-            <TouchableOpacity onPress={() => setMapVisible(false)}>
+            <TouchableOpacity style={styles.mapDoneBtn} onPress={() => setMapVisible(false)}>
               <Text style={styles.mapDone}>Confirm</Text>
             </TouchableOpacity>
           </View>
           <WebView
             source={{ html: mapHtml(lat ?? 18.5204, lng ?? 73.8567) }}
-            style={{ height: 250 }}
+            style={{ flex: 1 }}
             onMessage={(event) => {
               try {
                 const payload = JSON.parse(event.nativeEvent.data);
@@ -179,115 +204,163 @@ export default function AddPumpScreen({ navigation }: any) {
           />
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: '#111827',
+  },
+  header: {
+    paddingTop: 56,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#111827',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    color: '#0f172a',
-    fontWeight: '800',
-    fontSize: 24,
-    marginBottom: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 22,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  card: {
+    backgroundColor: '#1F2937',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
   },
   label: {
-    color: '#475569',
-    marginBottom: 6,
-    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#374151',
+    backgroundColor: '#111827',
+    color: '#FFFFFF',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    height: 46,
+    marginBottom: 16,
+    fontSize: 15,
   },
   mapBtn: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: 'rgba(0,200,150,0.12)',
     borderRadius: 10,
     alignItems: 'center',
-    paddingVertical: 10,
-    marginBottom: 6,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,150,0.3)',
   },
   mapBtnText: {
-    color: '#0369a1',
+    color: '#00C896',
     fontWeight: '700',
   },
   coordRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 10,
+    marginTop: 12,
   },
   coord: {
-    color: '#334155',
+    color: '#D1D5DB',
+    fontSize: 13,
+  },
+  coordMuted: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 12,
   },
   timeRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 10,
+    gap: 16,
+    marginBottom: 16,
   },
   stepBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#374151',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#FFFFFF',
   },
   stepValue: {
-    color: '#0f172a',
+    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 16,
+    minWidth: 20,
+    textAlign: 'center',
   },
   submitBtn: {
-    marginTop: 8,
-    backgroundColor: '#0ea5e9',
-    borderRadius: 12,
+    backgroundColor: '#00C896',
+    borderRadius: 14,
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 16,
+    marginTop: 4,
   },
   submitBtnDisabled: {
     opacity: 0.7,
   },
   submitText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: '#0A0A0A',
+    fontWeight: '800',
     fontSize: 16,
   },
   mapHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 18,
-    paddingBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 16,
+    backgroundColor: '#111827',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#374151',
   },
   mapHeaderTitle: {
-    color: '#0f172a',
+    color: '#FFFFFF',
     fontWeight: '700',
+    flex: 1,
+    marginRight: 12,
+  },
+  mapDoneBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,200,150,0.15)',
   },
   mapDone: {
-    color: '#0284c7',
+    color: '#00C896',
     fontWeight: '700',
   },
 });
