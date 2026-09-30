@@ -21,6 +21,7 @@ import { useLocationStore, type LocationBbox } from '../../store/locationStore';
 import { useAuthStore } from '../../store/authStore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LocationIcon, SearchIcon } from '../../components/ui/Icons';
+import { getCurrentDeviceLocation } from '../../utils/location';
 
 const SCREEN_H = Dimensions.get('window').height;
 const SNAP_PEEK = SCREEN_H * 0.75;
@@ -227,7 +228,7 @@ function NearbyBottomSheet({
 }
 
 export default function HomeScreen({ navigation }: any) {
-  const { lat, lng, city, displayName, bbox, setLocation } = useLocationStore();
+  const { lat, lng, city, displayName, bbox, isSet, setLocation } = useLocationStore();
 
   const [pumps, setPumps] = useState<Pump[]>([]);
   const [loadingPumps, setLoadingPumps] = useState(false);
@@ -267,6 +268,24 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     loadNearby();
   }, [lat, lng, regionBbox?.north, regionBbox?.south, regionBbox?.east, regionBbox?.west]);
+
+  // Use the device's real GPS position (not the hardcoded Kolhapur default)
+  // as soon as the user opens the map, so "You" and every pump's distance
+  // reflect where they actually are. Only runs once per session and only
+  // if they haven't already picked a location via search -- that stays in
+  // charge once they've explicitly browsed elsewhere.
+  useEffect(() => {
+    if (isSet) return;
+    let cancelled = false;
+    getCurrentDeviceLocation().then((loc) => {
+      if (cancelled || !loc) return;
+      setLocation(loc);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!searchText.trim()) {
