@@ -70,9 +70,11 @@ export default function BookingDetailScreen({ route, navigation }: any) {
   }
 
   const { pump, slot, status, qr_token } = booking;
-  const isPending = status === 'pending' || status === 'confirmed';
-  const isCancelled = status === 'cancelled';
-  const isCompleted = status === 'completed' || status === 'arrived';
+  const isAwaitingApproval = status === 'pending';
+  const isActive = status === 'confirmed';
+  const isCancelled = status === 'cancelled' || status === 'rejected';
+  const isCompleted = status === 'arrived' || status === 'no_show';
+  const canCancel = isAwaitingApproval || isActive;
   const slotDateForCountdown = slot?.slot_date || booking.slot_date;
   const slotTimeForCountdown = slot?.start_time || booking.slot_start;
   const slotStart = new Date(`${slotDateForCountdown}T${slotTimeForCountdown}`);
@@ -101,9 +103,15 @@ export default function BookingDetailScreen({ route, navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <ArrowLeftIcon size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={[styles.statusBadge, isPending ? styles.statusPending : isCancelled ? styles.statusCancelled : styles.statusCompleted]}>
-            <Text style={[styles.statusText, isPending ? styles.statusTextPending : isCancelled ? styles.statusTextCancelled : styles.statusTextCompleted]}>
-              {status.toUpperCase()}
+          <View style={[
+            styles.statusBadge,
+            isAwaitingApproval ? styles.statusAmber : isActive ? styles.statusPending : isCancelled ? styles.statusCancelled : styles.statusCompleted,
+          ]}>
+            <Text style={[
+              styles.statusText,
+              isAwaitingApproval ? styles.statusTextAmber : isActive ? styles.statusTextPending : isCancelled ? styles.statusTextCancelled : styles.statusTextCompleted,
+            ]}>
+              {isAwaitingApproval ? 'PENDING APPROVAL' : status.toUpperCase()}
             </Text>
           </View>
         </View>
@@ -128,7 +136,16 @@ export default function BookingDetailScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        {isPending && qr_token && (
+        {isAwaitingApproval && (
+          <View style={styles.pendingNotice}>
+            <MaterialCommunityIcons name="clock-alert-outline" size={18} color="#F59E0B" />
+            <Text style={styles.pendingNoticeText}>
+              Waiting for the pump owner to confirm this slot. You'll be able to check in once it's approved.
+            </Text>
+          </View>
+        )}
+
+        {isActive && qr_token && (
           <View style={styles.qrCard}>
             <Text style={styles.qrTitle}>Show at Station</Text>
             <View style={styles.qrCodeWrapper}>
@@ -168,7 +185,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
           <Text style={styles.navBtnText}>Navigate to Pump</Text>
         </TouchableOpacity>
 
-        {isPending && (
+        {canCancel && (
           <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
             <Text style={styles.cancelText}>Cancel Booking</Text>
           </TouchableOpacity>
@@ -219,6 +236,9 @@ const styles = StyleSheet.create({
   statusPending: {
     backgroundColor: 'rgba(0, 200, 150, 0.2)',
   },
+  statusAmber: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+  },
   statusCancelled: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
@@ -233,11 +253,32 @@ const styles = StyleSheet.create({
   statusTextPending: {
     color: '#00C896',
   },
+  statusTextAmber: {
+    color: '#F59E0B',
+  },
   statusTextCancelled: {
     color: '#EF4444',
   },
   statusTextCompleted: {
     color: '#3B82F6',
+  },
+  pendingNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.3)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+  },
+  pendingNoticeText: {
+    flex: 1,
+    color: '#B45309',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 28,
