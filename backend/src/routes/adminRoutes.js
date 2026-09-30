@@ -192,6 +192,82 @@ router.get('/bookings', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/bookings/export ──────────────────────────
+// CSV export of this pump owner's own bookings (their scan log).
+// Query params: date=YYYY-MM-DD (optional, all dates if omitted),
+// status=arrived|confirmed|cancelled|no_show (optional, all if omitted)
+function csvEscape(value) {
+  const s = value === null || value === undefined ? '' : String(value);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+router.get('/bookings/export', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { data: myPumps, error: pumpErr } = await supabase
+      .from('pumps')
+      .select('id, name')
+      .eq('owner_id', userId);
+    if (pumpErr) throw pumpErr;
+
+    const pumpIds = (myPumps || []).map((p) => p.id);
+    if (!pumpIds.length) {
+      return res.status(404).json({ error: 'No pump found for this account.' });
+    }
+    const pumpNameById = (myPumps || []).reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {});
+
+    let query = supabase
+      .from('bookings')
+      .select('id, pump_id, user_id, slot_date, slot_start, slot_end, status, booking_fee, updated_at')
+      .in('pump_id', pumpIds)
+      .order('slot_date', { ascending: false })
+      .order('slot_start', { ascending: true });
+
+    if (req.query.date) query = query.eq('slot_date', req.query.date);
+    if (req.query.status) query = query.eq('status', req.query.status);
+
+    const { data: bookings, error: bookErr } = await query;
+    if (bookErr) throw bookErr;
+
+    const userIds = [...new Set((bookings || []).map((b) => b.user_id).filter(Boolean))];
+    let usersById = {};
+    if (userIds.length) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name, phone, vehicle_number, vehicle_type')
+        .in('id', userIds);
+      usersById = (users || []).reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+    }
+
+    const header = ['Pump', 'Date', 'Slot Start', 'Slot End', 'Customer Name', 'Phone', 'Vehicle Number', 'Vehicle Type', 'Status', 'Booking Fee', 'Checked-in At'];
+    const rows = (bookings || []).map((b) => {
+      const u = usersById[b.user_id] || {};
+      return [
+        pumpNameById[b.pump_id] || '',
+        b.slot_date,
+        String(b.slot_start || '').slice(0, 5),
+        String(b.slot_end || '').slice(0, 5),
+        u.name || '',
+        u.phone || '',
+        u.vehicle_number || '',
+        u.vehicle_type || '',
+        b.status,
+        Number(b.booking_fee || 0).toFixed(2),
+        b.status === 'arrived' ? b.updated_at : '',
+      ];
+    });
+
+    const csv = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="bookings-export.csv"`);
+    return res.status(200).send(csv);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── PATCH /api/admin/pumps/:id ──────────────────────────────
 router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
   try {

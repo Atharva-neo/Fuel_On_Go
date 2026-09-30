@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { pumpService } from '../../services/pump.service';
+import { adminService } from '../../services/admin.service';
 
 function isoDate(offset = 0) {
   const d = new Date();
@@ -18,6 +22,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
   const [date, setDate] = useState(isoDate(0));
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -37,10 +42,46 @@ export default function AdminBookingsScreen({ navigation }: any) {
 
   const isToday = date === isoDate(0);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const csv = await adminService.exportBookingsCsv();
+      const file = new File(Paths.cache, `fuel-on-go-bookings-${Date.now()}.csv`);
+      file.create();
+      file.write(csv);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Export customer scan log',
+        });
+      } else {
+        Alert.alert('Saved', `File saved to ${file.uri}`);
+      }
+    } catch (err: any) {
+      Alert.alert('Export failed', err?.response?.data?.error || 'Could not export bookings.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Bookings</Text>
+          <TouchableOpacity
+            style={styles.exportBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color="#00C896" />
+            ) : (
+              <MaterialCommunityIcons name="download-outline" size={20} color="#00C896" />
+            )}
+          </TouchableOpacity>
+        </View>
         <View style={styles.dateRow}>
           <TouchableOpacity
             style={styles.dateBtn}
@@ -105,11 +146,24 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#111827',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   title: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 24,
-    marginBottom: 12,
+  },
+  exportBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,200,150,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateRow: {
     flexDirection: 'row',
