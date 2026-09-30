@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ChevronRightIcon, CalendarIcon } from '../../components/ui/Icons';
@@ -19,11 +20,7 @@ export default function MyBookingsScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const token = useAuthStore((s) => s.token);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       const res = await api.get('/bookings', {
         headers: { Authorization: `Bearer ${token}` },
@@ -34,7 +31,16 @@ export default function MyBookingsScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  // Re-fetch every time this screen gains focus (e.g. navigating back after
+  // cancelling a booking on the detail screen) instead of only on first mount,
+  // so the list never shows stale status.
+  useFocusEffect(
+    useCallback(() => {
+      fetchBookings();
+    }, [fetchBookings])
+  );
 
   // DB statuses: confirmed, arrived, no_show, cancelled
   // 'pending' tab shows confirmed+arrived, 'completed' shows arrived+no_show, 'cancelled' as-is
