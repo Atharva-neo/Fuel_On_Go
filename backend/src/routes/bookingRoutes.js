@@ -60,7 +60,7 @@ router.post('/', authenticate, async (req, res) => {
       slot_date,
       slot_start,
       slot_end,
-      status: 'confirmed',
+      status: 'pending',
       qr_token: randomToken('QR-'),
       booking_fee: Number(booking_fee || 0),
       total_estimated: Number(total_estimated || 0),
@@ -310,6 +310,115 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
 });
 
+async function ensureOwnerCanManageBooking(userId, bookingId) {
+  const { data: booking, error: bookingErr } = await supabase
+    .from('bookings')
+    .select('id, pump_id, slot_id, status')
+    .eq('id', bookingId)
+    .single();
+  if (bookingErr) throw bookingErr;
+
+  const { data: pump, error: pumpErr } = await supabase
+    .from('pumps')
+    .select('owner_id')
+    .eq('id', booking.pump_id)
+    .single();
+  if (pumpErr) throw pumpErr;
+
+  if (pump.owner_id !== userId) {
+    const err = new Error('You do not own this pump');
+    err.status = 403;
+    throw err;
+  }
+
+  return booking;
+}
+
+// ─── PATCH /api/bookings/:id/approve ──────────────────────────
+// Pump owner confirms a pending booking request.
+router.patch('/:id/approve', authenticate, async (req, res) => {
+  try {
+    const role = await getUserRole(req.user.sub);
+    if (!['pump_owner', 'admin'].includes(role)) {
+      return res.status(403).json({ error: 'Pump owner access required' });
+    }
+
+    const booking = await ensureOwnerCanManageBooking(req.user.sub, req.params.id);
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ error: `Booking is already ${booking.status}, not pending` });
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status: 'confirmed' })
+      .eq('id', booking.id)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    return res.json(data);
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
+  }
+});
+
+// ─── PATCH /api/bookings/:id/reject ───────────────────────────
+// Pump owner rejects a pending booking request; frees the slot back up.
+router.patch('/:id/reject', authenticate, async (req, res) => {
+  try {
+    const role = await getUserRole(req.user.sub);
+    if (!['pump_owner', 'admin'].includes(role)) {
+      return res.status(403).json({ error: 'Pump owner access required' });
+    }
+
+    const booking = await ensureOwnerCanManageBooking(req.user.sub, req.params.id);
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ error: `Booking is already ${booking.status}, not pending` });
+    }
+
+    const updatePayload = {
+      status: 'rejected',
+      cancellation_reason: req.body?.reason || 'Rejected by pump owner',
+    };
+
+    let updated = await supabase
+      .from('bookings')
+      .update(updatePayload)
+      .eq('id', booking.id)
+      .select('*')
+      .single();
+
+    if (updated.error && /column .*cancellation_reason/i.test(updated.error.message || '')) {
+      updated = await supabase
+        .from('bookings')
+        .update({ status: 'rejected' })
+        .eq('id', booking.id)
+        .select('*')
+        .single();
+    }
+    if (updated.error) throw updated.error;
+
+    const { data: slot } = await supabase
+      .from('slots')
+      .select('booked_count')
+      .eq('id', booking.slot_id)
+      .maybeSingle();
+
+    if (slot && slot.booked_count > 0) {
+      await supabase
+        .from('slots')
+        .update({ booked_count: slot.booked_count - 1 })
+        .eq('id', booking.slot_id);
+    }
+
+    return res.json(updated.data);
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
+  }
+});
+
 router.post('/checkin-by-admin', authenticate, async (req, res) => {
   try {
     const role = await getUserRole(req.user.sub);
@@ -350,6 +459,19 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
       return res.status(409).json({
         error: 'Already checked in',
         arrived_at: booking.arrived_at || booking.updated_at,
+      });
+    }
+
+    if (booking.status === 'pending') {
+      return res.status(400).json({
+        error: 'This booking is still awaiting your approval -- confirm it first before checking the customer in.',
+        code: 'PENDING_APPROVAL',
+      });
+    }
+    if (booking.status === 'rejected' || booking.status === 'cancelled') {
+      return res.status(400).json({
+        error: `This booking was ${booking.status} and can't be checked in.`,
+        code: 'NOT_ACTIVE',
       });
     }
 

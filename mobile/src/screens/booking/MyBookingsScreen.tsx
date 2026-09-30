@@ -12,12 +12,21 @@ import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ChevronRightIcon, CalendarIcon } from '../../components/ui/Icons';
 
-type TabType = 'pending' | 'completed' | 'cancelled';
+type TabType = 'upcoming' | 'completed' | 'cancelled';
+
+// DB statuses: pending (awaiting pump-owner approval), confirmed, arrived,
+// no_show, cancelled, rejected
+function statusMeta(status: string) {
+  if (status === 'pending') return { label: 'Pending Approval', badge: 'amber' as const };
+  if (status === 'confirmed' || status === 'arrived') return { label: status, badge: 'green' as const };
+  if (status === 'cancelled' || status === 'rejected') return { label: status, badge: 'red' as const };
+  return { label: status, badge: 'blue' as const };
+}
 
 export default function MyBookingsScreen({ navigation }: any) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('pending');
+  const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const token = useAuthStore((s) => s.token);
 
   const fetchBookings = useCallback(async () => {
@@ -42,18 +51,17 @@ export default function MyBookingsScreen({ navigation }: any) {
     }, [fetchBookings])
   );
 
-  // DB statuses: confirmed, arrived, no_show, cancelled
-  // 'pending' tab shows confirmed+arrived, 'completed' shows arrived+no_show, 'cancelled' as-is
+  // 'upcoming' shows everything not yet resolved (pending approval, confirmed,
+  // arrived), 'completed' shows arrived+no_show, 'cancelled' shows
+  // cancelled+rejected
   const filteredBookings = bookings.filter((b) => {
-    if (activeTab === 'pending') return b.status === 'confirmed' || b.status === 'arrived';
+    if (activeTab === 'upcoming') return b.status === 'pending' || b.status === 'confirmed' || b.status === 'arrived';
     if (activeTab === 'completed') return b.status === 'arrived' || b.status === 'no_show';
-    return b.status === 'cancelled';
+    return b.status === 'cancelled' || b.status === 'rejected';
   });
 
   const renderBooking = ({ item }: { item: any }) => {
-    const isPending = item.status === 'pending';
-    const isCancelled = item.status === 'cancelled';
-    const isCompleted = item.status === 'completed';
+    const meta = statusMeta(item.status);
 
     return (
       <TouchableOpacity
@@ -63,9 +71,21 @@ export default function MyBookingsScreen({ navigation }: any) {
       >
         <View style={styles.cardHeader}>
           <Text style={styles.pumpName} numberOfLines={1}>{item.pump_name || item.pump?.name || 'Unknown Pump'}</Text>
-          <View style={[styles.statusBadge, (item.status === 'confirmed' || item.status === 'arrived') ? styles.statusPending : item.status === 'cancelled' ? styles.statusCancelled : styles.statusCompleted]}>
-            <Text style={[styles.statusText, (item.status === 'confirmed' || item.status === 'arrived') ? styles.statusTextPending : item.status === 'cancelled' ? styles.statusTextCancelled : styles.statusTextCompleted]}>
-              {item.status.toUpperCase()}
+          <View style={[
+            styles.statusBadge,
+            meta.badge === 'green' && styles.statusGreen,
+            meta.badge === 'amber' && styles.statusAmber,
+            meta.badge === 'red' && styles.statusCancelled,
+            meta.badge === 'blue' && styles.statusCompleted,
+          ]}>
+            <Text style={[
+              styles.statusText,
+              meta.badge === 'green' && styles.statusTextGreen,
+              meta.badge === 'amber' && styles.statusTextAmber,
+              meta.badge === 'red' && styles.statusTextCancelled,
+              meta.badge === 'blue' && styles.statusTextCompleted,
+            ]}>
+              {meta.label.toUpperCase()}
             </Text>
           </View>
         </View>
@@ -98,7 +118,7 @@ export default function MyBookingsScreen({ navigation }: any) {
       </View>
 
       <View style={styles.tabsContainer}>
-        {(['pending', 'completed', 'cancelled'] as TabType[]).map((tab) => (
+        {(['upcoming', 'completed', 'cancelled'] as TabType[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -219,8 +239,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  statusPending: {
+  statusGreen: {
     backgroundColor: 'rgba(0, 200, 150, 0.15)',
+  },
+  statusAmber: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   statusCancelled: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -232,8 +255,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  statusTextPending: {
+  statusTextGreen: {
     color: '#00C896',
+  },
+  statusTextAmber: {
+    color: '#F59E0B',
   },
   statusTextCancelled: {
     color: '#EF4444',
