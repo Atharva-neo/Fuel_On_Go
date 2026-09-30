@@ -23,6 +23,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [actingOn, setActingOn] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -41,6 +42,40 @@ export default function AdminBookingsScreen({ navigation }: any) {
   }, [date]);
 
   const isToday = date === isoDate(0);
+  const pendingCount = bookings.filter((b) => b.status === 'pending').length;
+
+  const handleApprove = async (bookingId: string) => {
+    setActingOn(bookingId);
+    try {
+      await adminService.approveBooking(bookingId);
+      load();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not approve booking.');
+    } finally {
+      setActingOn(null);
+    }
+  };
+
+  const handleReject = (bookingId: string) => {
+    Alert.alert('Reject booking?', 'The slot will be freed up for other customers.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject',
+        style: 'destructive',
+        onPress: async () => {
+          setActingOn(bookingId);
+          try {
+            await adminService.rejectBooking(bookingId);
+            load();
+          } catch (err: any) {
+            Alert.alert('Error', err?.response?.data?.error || 'Could not reject booking.');
+          } finally {
+            setActingOn(null);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -68,7 +103,14 @@ export default function AdminBookingsScreen({ navigation }: any) {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Bookings</Text>
+          <View style={styles.titleWithBadge}>
+            <Text style={styles.title}>Bookings</Text>
+            {pendingCount > 0 ? (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingCount} pending</Text>
+              </View>
+            ) : null}
+          </View>
           <TouchableOpacity
             style={styles.exportBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -112,22 +154,52 @@ export default function AdminBookingsScreen({ navigation }: any) {
         <ActivityIndicator color="#00C896" style={{ marginTop: 24 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
-          {bookings.map((booking) => (
-            <TouchableOpacity
-              key={booking.id}
-              style={styles.card}
-              onPress={() => navigation.navigate('AdminBookingDetail', { bookingId: booking.id, booking })}
-            >
-              <Text style={styles.customer}>{booking.user?.name || booking.user_name || 'Customer'}</Text>
-              <Text style={styles.meta}>{booking.user?.vehicle_number || booking.vehicle_number || '-'}</Text>
-              <Text style={styles.meta}>
-                {booking.slot_start?.slice(0, 5)} - {booking.slot_end?.slice(0, 5)}
-              </Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{booking.status}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {bookings.map((booking) => {
+            const isPending = booking.status === 'pending';
+            const isNegative = booking.status === 'cancelled' || booking.status === 'rejected';
+            return (
+              <TouchableOpacity
+                key={booking.id}
+                style={[styles.card, isPending && styles.cardPending]}
+                onPress={() => navigation.navigate('AdminBookingDetail', { bookingId: booking.id, booking })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.customer}>{booking.user?.name || booking.user_name || 'Customer'}</Text>
+                <Text style={styles.meta}>{booking.user?.vehicle_number || booking.vehicle_number || '-'}</Text>
+                <Text style={styles.meta}>
+                  {booking.slot_start?.slice(0, 5)} - {booking.slot_end?.slice(0, 5)}
+                </Text>
+                <View style={[styles.badge, isNegative && styles.badgeNegative, isPending && styles.badgePending]}>
+                  <Text style={[styles.badgeText, isNegative && styles.badgeTextNegative, isPending && styles.badgeTextPending]}>
+                    {booking.status}
+                  </Text>
+                </View>
+
+                {isPending ? (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.rejectBtn}
+                      disabled={actingOn === booking.id}
+                      onPress={() => handleReject(booking.id)}
+                    >
+                      <Text style={styles.rejectBtnText}>Reject</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.approveBtn}
+                      disabled={actingOn === booking.id}
+                      onPress={() => handleApprove(booking.id)}
+                    >
+                      {actingOn === booking.id ? (
+                        <ActivityIndicator size="small" color="#0A0A0A" />
+                      ) : (
+                        <Text style={styles.approveBtnText}>Approve</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
           {bookings.length === 0 ? <Text style={styles.empty}>No bookings for selected date.</Text> : null}
         </ScrollView>
       )}
@@ -152,10 +224,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  titleWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
   title: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 24,
+  },
+  pendingBadge: {
+    backgroundColor: 'rgba(245,158,11,0.15)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pendingBadgeText: {
+    color: '#F59E0B',
+    fontWeight: '700',
+    fontSize: 12,
   },
   exportBtn: {
     width: 36,
@@ -195,6 +284,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  cardPending: {
+    borderColor: 'rgba(245,158,11,0.4)',
+  },
   customer: {
     color: '#FFFFFF',
     fontWeight: '800',
@@ -213,11 +305,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  badgePending: {
+    backgroundColor: 'rgba(245,158,11,0.15)',
+  },
+  badgeNegative: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+  },
   badgeText: {
     color: '#00C896',
     fontWeight: '700',
     textTransform: 'capitalize',
     fontSize: 12,
+  },
+  badgeTextPending: {
+    color: '#F59E0B',
+  },
+  badgeTextNegative: {
+    color: '#EF4444',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  rejectBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  rejectBtnText: {
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  approveBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#00C896',
+  },
+  approveBtnText: {
+    color: '#0A0A0A',
+    fontWeight: '700',
+    fontSize: 13,
   },
   empty: {
     textAlign: 'center',
