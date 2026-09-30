@@ -61,6 +61,65 @@ function buildBbox(raw: [string, string, string, string]): LocationBbox {
   };
 }
 
+function PumpPopup({
+  pump,
+  onDismiss,
+  onBook,
+  onNavigate,
+}: {
+  pump: Pump;
+  onDismiss: () => void;
+  onBook: () => void;
+  onNavigate: () => void;
+}) {
+  const dragY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        // only let it move downward -- swiping up shouldn't do anything
+        if (g.dy >= 0) dragY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 60 || g.vy > 0.8) {
+          onDismiss();
+        } else {
+          Animated.spring(dragY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+        }
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View style={[styles.popup, { transform: [{ translateY: dragY }] }]}>
+      <View {...panResponder.panHandlers} style={styles.popupHandleArea}>
+        <View style={styles.popupHandle} />
+      </View>
+      <TouchableOpacity
+        style={styles.popupClose}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        onPress={onDismiss}
+      >
+        <MaterialCommunityIcons name="close" size={18} color="#64748b" />
+      </TouchableOpacity>
+      <Text style={styles.popupName}>{pump.name}</Text>
+      <Text style={styles.popupAddr} numberOfLines={1}>
+        {pump.address}
+      </Text>
+      <View style={styles.popupActions}>
+        <TouchableOpacity style={styles.popupPrimary} onPress={onBook}>
+          <Text style={styles.popupPrimaryText}>View & Book</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.popupSecondary} onPress={onNavigate}>
+          <Text style={styles.popupSecondaryText}>Navigate</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+}
+
 function NearbyBottomSheet({
   pumps,
   loading,
@@ -346,37 +405,19 @@ export default function HomeScreen({ navigation }: any) {
       </View>
 
       {selectedPump ? (
-        <View style={styles.popup}>
-          <TouchableOpacity
-            style={styles.popupClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => setSelectedPump(null)}
-          >
-            <MaterialCommunityIcons name="close" size={18} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.popupName}>{selectedPump.name}</Text>
-          <Text style={styles.popupAddr} numberOfLines={1}>
-            {selectedPump.address}
-          </Text>
-          <View style={styles.popupActions}>
-            <TouchableOpacity style={styles.popupPrimary} onPress={() => navigation.getParent()?.navigate('PumpDetail', { pumpId: selectedPump.id })}>
-              <Text style={styles.popupPrimaryText}>View & Book</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.popupSecondary}
-              onPress={() =>
-                navigation.navigate('Navigation', {
-                  lat: selectedPump.lat,
-                  lng: selectedPump.lng,
-                  pumpName: selectedPump.name,
-                  address: selectedPump.address,
-                })
-              }
-            >
-              <Text style={styles.popupSecondaryText}>Navigate</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <PumpPopup
+          pump={selectedPump}
+          onDismiss={() => setSelectedPump(null)}
+          onBook={() => navigation.getParent()?.navigate('PumpDetail', { pumpId: selectedPump.id })}
+          onNavigate={() =>
+            navigation.navigate('Navigation', {
+              lat: selectedPump.lat,
+              lng: selectedPump.lng,
+              pumpName: selectedPump.name,
+              address: selectedPump.address,
+            })
+          }
+        />
       ) : null}
 
       <NearbyBottomSheet
@@ -487,14 +528,25 @@ const styles = StyleSheet.create({
     bottom: SCREEN_H * 0.28,
     backgroundColor: '#fff',
     borderRadius: 14,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     zIndex: 30,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  popupHandleArea: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  popupHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+  },
   popupClose: {
     position: 'absolute',
-    top: 10,
+    top: 8,
     right: 10,
     zIndex: 1,
   },
