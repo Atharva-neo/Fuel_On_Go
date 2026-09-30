@@ -298,6 +298,41 @@ router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'No editable fields provided' });
     }
 
+    // Narrowing operating hours could silently strand bookings that already
+    // exist for a slot outside the new window -- block the edit instead.
+    if (updates.working_hours_start || updates.working_hours_end) {
+      const { data: pumpNow, error: pumpNowErr } = await supabase
+        .from('pumps')
+        .select('working_hours_start, working_hours_end')
+        .eq('id', req.params.id)
+        .single();
+      if (pumpNowErr) throw pumpNowErr;
+
+      const newStart = updates.working_hours_start || pumpNow.working_hours_start;
+      const newEnd = updates.working_hours_end || pumpNow.working_hours_end;
+      const today = new Date().toISOString().slice(0, 10);
+
+      const { data: outOfRange, error: rangeErr } = await supabase
+        .from('bookings')
+        .select('id, slot_date, slot_start, slot_end')
+        .eq('pump_id', req.params.id)
+        .in('status', ['confirmed', 'arrived'])
+        .gte('slot_date', today);
+      if (rangeErr) throw rangeErr;
+
+      const conflicts = (outOfRange || []).filter((b) => {
+        const start = String(b.slot_start).slice(0, 5);
+        const end = String(b.slot_end).slice(0, 5);
+        return start < newStart || end > newEnd;
+      });
+
+      if (conflicts.length) {
+        return res.status(400).json({
+          error: `Cannot change hours to ${newStart}–${newEnd}: ${conflicts.length} existing booking(s) fall outside this window (e.g. ${conflicts[0].slot_date} ${String(conflicts[0].slot_start).slice(0, 5)}–${String(conflicts[0].slot_end).slice(0, 5)}). Those bookings must be resolved first.`,
+        });
+      }
+    }
+
     const { data, error } = await supabase
       .from('pumps')
       .update(updates)
@@ -354,7 +389,7 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     // Find this owner's pump
     const { data: pump, error: pumpErr } = await supabase
       .from('pumps')
-      .select('id')
+      .select('id, working_hours_start, working_hours_end')
       .eq('owner_id', userId)
       .limit(1)
       .maybeSingle();
@@ -366,7 +401,7 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     const date = safeDate(req.query.date);
 
     // Fetch slots for the pump on that date
-    const { data: slots, error: slotsErr } = await supabase
+    const { data: rawSlots, error: slotsErr } = await supabase
       .from('slots')
       .select('id, start_time, end_time, capacity, booked_count, is_deactivated, deactivation_reason, slot_date')
       .eq('pump_id', pump.id)
@@ -374,6 +409,18 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
       .order('start_time', { ascending: true });
 
     if (slotsErr) throw slotsErr;
+
+    // Only show slots that fall within the pump's current operating hours --
+    // a slot generated before the owner narrowed their hours shouldn't keep
+    // cluttering the list (bookings on any such slot already block the hours
+    // change itself, see PATCH /pumps/:id, so nothing booked is hidden here).
+    const hoursStart = pump.working_hours_start || '00:00';
+    const hoursEnd = pump.working_hours_end || '23:59';
+    const slots = (rawSlots || []).filter((s) => {
+      const start = String(s.start_time).slice(0, 5);
+      const end = String(s.end_time).slice(0, 5);
+      return start >= hoursStart && end <= hoursEnd;
+    });
 
     // Derive status — the slots table has no status column, so compute it
     const now = new Date();
