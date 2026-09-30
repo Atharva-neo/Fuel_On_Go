@@ -11,6 +11,7 @@ import {
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { LocationIcon, ChevronRightIcon, CheckIcon, CalendarIcon } from '../../components/ui/Icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function AdminDashboardScreen({ navigation }: any) {
   const logout = useAuthStore((s) => s.logout);
@@ -164,6 +165,20 @@ export default function AdminDashboardScreen({ navigation }: any) {
           <View style={styles.actionTextContent}>
             <Text style={styles.actionTitle}>Manage Slots</Text>
             <Text style={styles.actionSubtitle}>Update capacity & timings</Text>
+          </View>
+          <ChevronRightIcon size={20} color="#71717A" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={() => navigation.navigate('CngUpdate')}
+        >
+          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+            <MaterialCommunityIcons name="pencil-outline" size={24} color="#F59E0B" />
+          </View>
+          <View style={styles.actionTextContent}>
+            <Text style={styles.actionTitle}>Edit Pump Details</Text>
+            <Text style={styles.actionSubtitle}>Name, rate, timings, address & more</Text>
           </View>
           <ChevronRightIcon size={20} color="#71717A" />
         </TouchableOpacity>
