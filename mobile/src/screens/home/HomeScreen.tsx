@@ -347,6 +347,13 @@ export default function HomeScreen({ navigation }: any) {
 
       {selectedPump ? (
         <View style={styles.popup}>
+          <TouchableOpacity
+            style={styles.popupClose}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={() => setSelectedPump(null)}
+          >
+            <MaterialCommunityIcons name="close" size={18} color="#64748b" />
+          </TouchableOpacity>
           <Text style={styles.popupName}>{selectedPump.name}</Text>
           <Text style={styles.popupAddr} numberOfLines={1}>
             {selectedPump.address}
@@ -481,14 +488,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 12,
-    zIndex: 25,
+    zIndex: 30,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  popupClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
   },
   popupName: {
     color: '#0f172a',
     fontWeight: '800',
     fontSize: 15,
+    paddingRight: 24,
   },
   popupAddr: {
     color: '#64748b',
@@ -537,6 +551,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
+    zIndex: 21,
   },
   handleArea: {
     alignItems: 'center',
