@@ -25,10 +25,20 @@ export const adminService = {
   },
 
   async updatePump(pumpId: string, payload: {
+    name?: string;
+    address?: string;
+    city?: string;
+    district?: string;
+    pin_code?: string;
+    working_hours_start?: string;
+    working_hours_end?: string;
+    vehicles_per_slot?: number;
     cng_price_per_kg?: number;
     fuel_density?: number;
     supply_status?: 'available' | 'low' | 'interrupted';
     public_message?: string;
+    lat?: number;
+    lng?: number;
   }) {
     const { data } = await api.patch(`/admin/pumps/${pumpId}`, payload);
     return data;

@@ -269,12 +269,38 @@ router.get('/bookings/export', authenticate, requireAdmin, async (req, res) => {
 });
 
 // ─── PATCH /api/admin/pumps/:id ──────────────────────────────
+// Lets a pump owner edit any detail of their own pump at any time
+// (not just at registration). Only fields actually present in the
+// request body are updated -- everything else is left untouched.
 router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { cng_price_per_kg, fuel_density, supply_status, public_message } = req.body;
+    const { data: existing, error: findErr } = await supabase
+      .from('pumps')
+      .select('owner_id')
+      .eq('id', req.params.id)
+      .single();
+    if (findErr) throw findErr;
+    if (existing.owner_id !== req.user.sub) {
+      return res.status(403).json({ error: 'You do not own this pump' });
+    }
+
+    const allowedFields = [
+      'name', 'address', 'city', 'district', 'pin_code',
+      'working_hours_start', 'working_hours_end', 'vehicles_per_slot',
+      'cng_price_per_kg', 'fuel_density', 'supply_status', 'public_message',
+      'lat', 'lng',
+    ];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'No editable fields provided' });
+    }
+
     const { data, error } = await supabase
       .from('pumps')
-      .update({ cng_price_per_kg, fuel_density, supply_status, public_message })
+      .update(updates)
       .eq('id', req.params.id)
       .select()
       .single();
