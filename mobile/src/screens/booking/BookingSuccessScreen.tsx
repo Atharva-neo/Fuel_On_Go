@@ -11,7 +11,7 @@ import { colors, fontSize, radius, spacing } from '../../theme/stitch';
 import type { MockBooking } from '../../mock/data';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { CheckIcon, CalendarIcon, AlertIcon } from '../../components/ui/Icons';
+import { CheckIcon, CalendarIcon } from '../../components/ui/Icons';
 
 type SuccessNav = NativeStackNavigationProp<AppStackParamList, 'BookingSuccess'>;
 type SuccessRoute = RouteProp<AppStackParamList, 'BookingSuccess'>;
@@ -47,13 +47,13 @@ export default function BookingSuccessScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Checkmark */}
-        <Animated.View style={[styles.check, styles.checkPending, { transform: [{ scale: checkScale }] }]}>
-          <AlertIcon size={24} color={colors.white} />
+        <Animated.View style={[styles.check, { transform: [{ scale: checkScale }] }]}>
+          <CheckIcon size={26} color={colors.white} />
         </Animated.View>
 
         <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
-          <Text style={styles.title}>Booking Request Sent</Text>
-          <Text style={styles.subtitle}>Waiting for the pump owner to confirm your slot</Text>
+          <Text style={styles.title}>Booking Confirmed!</Text>
+          <Text style={styles.subtitle}>Your slot is reserved</Text>
 
           {/* Summary */}
           <Card style={styles.summaryCard}>
@@ -78,7 +78,7 @@ export default function BookingSuccessScreen() {
               color="#000"
               backgroundColor="#fff"
             />
-            <Text style={styles.qrLabel}>Show at pump entrance once confirmed</Text>
+            <Text style={styles.qrLabel}>Show at pump entrance</Text>
             <Text style={styles.qrRef}>Ref: #{booking.id.slice(-8).toUpperCase()}</Text>
           </View>
 
@@ -124,9 +124,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-  },
-  checkPending: {
-    backgroundColor: '#F59E0B',
   },
   content: { width: '100%', alignItems: 'center' },
   title: {

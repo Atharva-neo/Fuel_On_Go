@@ -44,16 +44,6 @@ export const adminService = {
     return data;
   },
 
-  async approveBooking(bookingId: string) {
-    const { data } = await api.patch(`/bookings/${bookingId}/approve`);
-    return data;
-  },
-
-  async rejectBooking(bookingId: string, reason?: string) {
-    const { data } = await api.patch(`/bookings/${bookingId}/reject`, { reason });
-    return data;
-  },
-
   async exportBookingsCsv(params?: { date?: string; status?: string }): Promise<string> {
     const { data } = await api.get('/admin/bookings/export', {
       params,
