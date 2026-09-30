@@ -33,4 +33,13 @@ export const adminService = {
     const { data } = await api.patch(`/admin/pumps/${pumpId}`, payload);
     return data;
   },
+
+  async exportBookingsCsv(params?: { date?: string; status?: string }): Promise<string> {
+    const { data } = await api.get('/admin/bookings/export', {
+      params,
+      responseType: 'text',
+      transformResponse: (r) => r, // keep raw CSV text, don't let axios try to JSON-parse it
+    });
+    return data as unknown as string;
+  },
 };
