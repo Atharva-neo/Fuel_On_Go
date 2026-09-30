@@ -93,8 +93,6 @@ export default function QRScannerScreen({ navigation }: any) {
       const errData = err?.response?.data;
       if (status === 409) setResult({ type: 'already_scanned', data: errData });
       else if (status === 403) setResult({ type: 'wrong_pump', data: errData });
-      else if (status === 400 && errData?.code === 'PENDING_APPROVAL') setResult({ type: 'pending_approval', data: errData });
-      else if (status === 400 && errData?.code === 'NOT_ACTIVE') setResult({ type: 'not_active', data: errData });
       else if (status === 400) setResult({ type: 'outside_window', data: errData });
       else setResult({ type: 'invalid', data: errData });
       setModalVisible(true);
@@ -200,36 +198,6 @@ export default function QRScannerScreen({ navigation }: any) {
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
                     This booking was already checked in at {formatTimestamp(result.data?.arrived_at)}.
-                  </Text>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : result?.type === 'pending_approval' ? (
-              <>
-                <View style={styles.modalHeader}>
-                  <AlertIcon size={24} color="#F59E0B" />
-                  <Text style={styles.modalTitle}>Not Yet Approved</Text>
-                </View>
-                <View style={styles.modalBody}>
-                  <Text style={styles.errorMessage}>
-                    This booking is still awaiting your approval. Confirm it on the Bookings tab first, then scan again.
-                  </Text>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : result?.type === 'not_active' ? (
-              <>
-                <View style={styles.modalHeader}>
-                  <XIcon size={24} color="#EF4444" />
-                  <Text style={styles.modalTitle}>Booking Not Active</Text>
-                </View>
-                <View style={styles.modalBody}>
-                  <Text style={styles.errorMessage}>
-                    {result.data?.error || "This booking can't be checked in."}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
                     <Text style={styles.cancelBtnText}>Scan Next</Text>
