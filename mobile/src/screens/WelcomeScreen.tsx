@@ -1,42 +1,53 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LightningIcon, CarIcon, UserIcon } from '../components/ui/Icons';
+import ThemeToggle from '../components/ThemeToggle';
+import Logo from '../components/Logo';
+import { useTheme, type Theme } from '../theme';
 
 export default function WelcomeScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return (
     <View style={styles.container}>
       {/* Background radial blobs simulated */}
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
+      <View style={styles.themeToggle}>
+        <ThemeToggle />
+      </View>
+
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <LightningIcon size={48} color="#00C896" />
-        </View>
-        <Text style={styles.title}>Fuel on Go</Text>
+        <Logo size={132} style={{ marginBottom: 20 }} />
         <Text style={styles.tagline}>Book your CNG slot. Skip the queue.</Text>
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('UserAuth')}>
-          <CarIcon size={20} color="#0A0A0A" />
-          <Text style={styles.primaryText}>I'm a Vehicle Owner</Text>
+          <CarIcon size={20} color={t.colors.text} />
+          <Text style={styles.primaryText} numberOfLines={1}>
+            I'm a Vehicle Owner
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('AdminAuth')}>
-          <UserIcon size={20} color="#FFFFFF" />
-          <Text style={styles.secondaryText}>I'm a Pump Owner</Text>
+          <UserIcon size={20} color={t.colors.onInverse} />
+          <Text style={styles.secondaryText} numberOfLines={1}>
+            I'm a Pump Owner
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.bg,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   blob1: {
     position: 'absolute',
@@ -45,7 +56,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: 'rgba(0, 200, 150, 0.15)',
+    backgroundColor: t.colors.brandTint,
     transform: [{ scale: 1.5 }],
   },
   blob2: {
@@ -55,8 +66,8 @@ const styles = StyleSheet.create({
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: 'rgba(10, 10, 10, 0.8)',
-    zIndex: 1,
+    backgroundColor: t.colors.surfaceAlt,
+    zIndex: 0,
   },
   content: {
     flex: 1,
@@ -64,27 +75,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     zIndex: 2,
   },
+  themeToggle: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    zIndex: 5,
+  },
   logoContainer: {
     width: 80,
     height: 80,
-    backgroundColor: 'rgba(0, 200, 150, 0.1)',
+    backgroundColor: t.colors.brandTint,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(0, 200, 150, 0.2)',
+    borderColor: t.colors.brand,
   },
   title: {
     fontSize: 42,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: t.colors.text,
     letterSpacing: -1.5,
   },
   tagline: {
     marginTop: 12,
     fontSize: 16,
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     letterSpacing: -0.2,
     lineHeight: 24,
   },
@@ -94,7 +111,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   primaryButton: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     flexDirection: 'row',
     paddingVertical: 18,
     borderRadius: 16,
@@ -104,27 +121,29 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   primaryText: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 16,
-    letterSpacing: -0.3,
+    flexShrink: 1,
+    paddingRight: 2,
   },
   secondaryButton: {
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.inverse,
     flexDirection: 'row',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: t.colors.border,
     gap: 12,
   },
   secondaryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: t.colors.onInverse,
+    fontWeight: '800',
     fontSize: 16,
-    letterSpacing: -0.3,
+    flexShrink: 1,
+    paddingRight: 2, // Android can clip the last glyph of a bold label without this
   },
 });
 

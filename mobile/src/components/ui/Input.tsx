@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   ViewStyle,
   TouchableOpacity,
 } from 'react-native';
-import { colors, radius, fontSize } from '../../theme/stitch';
+import { radius, fontSize } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 interface InputProps {
   label?: string;
@@ -50,6 +51,8 @@ export default function Input({
   onSubmitEditing,
   prefix,
 }: InputProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [focused, setFocused] = useState(false);
 
   return (
@@ -68,7 +71,7 @@ export default function Input({
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={t.colors.textMuted}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
@@ -80,7 +83,7 @@ export default function Input({
           onBlur={() => setFocused(false)}
           returnKeyType={returnKeyType}
           onSubmitEditing={onSubmitEditing}
-          selectionColor={colors.primary}
+          selectionColor={t.colors.brandText}
         />
         {rightIcon ? (
           <TouchableOpacity onPress={onRightIconPress} disabled={!onRightIconPress}>
@@ -93,57 +96,57 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   wrapper: {
     marginBottom: 14,
   },
   label: {
     fontSize: fontSize.sm,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: t.colors.textSecondary,
     marginBottom: 6,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgInput,
+    backgroundColor: t.colors.inputBg,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
     paddingHorizontal: 12,
     height: 52,
     gap: 8,
   },
   focused: {
-    borderColor: colors.primary,
+    borderColor: t.colors.brand,
   },
   errored: {
-    borderColor: colors.danger,
+    borderColor: t.colors.danger,
   },
   disabled: {
     opacity: 0.5,
   },
   icon: {
     fontSize: 18,
-    color: colors.textMuted,
+    color: t.colors.textMuted,
   },
   prefix: {
     fontSize: fontSize.base,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: t.colors.text,
     paddingRight: 8,
     borderRightWidth: 1,
-    borderRightColor: colors.border,
+    borderRightColor: t.colors.border,
   },
   input: {
     flex: 1,
     fontSize: fontSize.base,
-    color: colors.textPrimary,
+    color: t.colors.text,
     height: '100%',
   },
   error: {
     fontSize: fontSize.xs,
-    color: colors.danger,
+    color: t.colors.dangerText,
     marginTop: 4,
   },
 });

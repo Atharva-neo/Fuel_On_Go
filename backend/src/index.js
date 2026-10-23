@@ -15,6 +15,7 @@ const waitlistRoutes = require('./routes/waitlistRoutes');
 const adminRoutes   = require('./routes/adminRoutes');
 const ratingsRouter = require('./routes/ratingsRoutes');
 const userRoutes    = require('./routes/userRoutes');
+const trustRoutes   = require('./routes/trustRoutes');
 const cronService   = require('./services/cronService');
 
 const app  = express();
@@ -70,6 +71,7 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/ratings',  ratingsRouter);
 app.use('/api/users',    userRoutes);
+app.use('/api/trust',    trustRoutes);
 
 // ─── 404 ─────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));

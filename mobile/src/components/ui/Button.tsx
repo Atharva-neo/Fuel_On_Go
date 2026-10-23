@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -9,7 +9,8 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { colors, radius, fontSize } from '../../theme/stitch';
+import { radius, fontSize } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'full';
@@ -26,13 +27,14 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const variantStyles = {
-  primary: { bg: colors.primary, text: colors.white, border: 'transparent' },
-  secondary: { bg: colors.bgInput, text: colors.white, border: 'transparent' },
-  outline: { bg: 'transparent', text: colors.primary, border: colors.primary },
-  danger: { bg: colors.danger, text: colors.white, border: 'transparent' },
-  ghost: { bg: 'transparent', text: colors.primary, border: 'transparent' },
-} as const;
+const variantStyles = (t: Theme) =>
+  ({
+    primary: { bg: t.colors.brand, text: t.colors.onBrand, border: 'transparent' },
+    secondary: { bg: t.colors.surface, text: t.colors.text, border: t.colors.border },
+    outline: { bg: 'transparent', text: t.colors.brandText, border: t.colors.brand },
+    danger: { bg: t.colors.danger, text: t.colors.onDanger, border: 'transparent' },
+    ghost: { bg: 'transparent', text: t.colors.brandText, border: 'transparent' },
+  }) as const;
 
 const sizeStyles = {
   sm: { height: 36, px: 14, fs: fontSize.sm },
@@ -52,8 +54,10 @@ export default function Button({
   children,
   style,
 }: ButtonProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const scale = useRef(new Animated.Value(1)).current;
-  const v = variantStyles[variant];
+  const v = variantStyles(t)[variant];
   const s = sizeStyles[size];
 
   const onPressIn = () => {
@@ -100,7 +104,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useTheme, type Theme } from '../theme';
+import { MAP_USER_AGENT, mapThemeVars } from './mapKit';
+import { homeMapHtml } from './homeMapHtml';
 
 interface PumpMarker {
   id: string;
@@ -18,189 +21,41 @@ interface SearchRegion {
   bbox?: [string | number, string | number, string | number, string | number] | null;
 }
 
+export interface DeviceMarker {
+  lat: number;
+  lng: number;
+  accuracy?: number | null;
+  /** false = cached / out-of-date position: drawn grey, no accuracy halo. */
+  live: boolean;
+}
+
+export interface CameraCommand {
+  seq: number;
+  lat: number;
+  lng: number;
+  zoom?: number;
+  animate?: boolean;
+}
+
 interface Props {
-  userLat: number;
-  userLng: number;
+  device: DeviceMarker | null;
   pumps: PumpMarker[];
   searchRegion?: SearchRegion | null;
+  cameraCommand?: CameraCommand | null;
+  onUserGesture?: () => void;
   onPumpPress?: (pumpId: string) => void;
 }
 
-function mapHtml() {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-  <style>
-    html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; }
-    .pump-popup { font-family: sans-serif; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([20.5937, 78.9629], 5);
-
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: 'Tiles &copy; Esri',
-    }).addTo(map);
-
-    var userMarker = null;
-
-    var clusterGroup = L.markerClusterGroup({
-      chunkedLoading: true,
-      maxClusterRadius: 40,
-      iconCreateFunction: function(cluster) {
-        var count = cluster.getChildCount();
-        return L.divIcon({
-          html: '<div style="background:#00c896;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2)">' + count + '</div>',
-          className: '',
-          iconSize: [36, 36],
-          iconAnchor: [18, 18]
-        });
-      }
-    });
-
-    map.addLayer(clusterGroup);
-
-    function zoomToRegion(bbox) {
-      if (!bbox || bbox.length !== 4) return;
-      var south = parseFloat(bbox[0]);
-      var north = parseFloat(bbox[1]);
-      var west = parseFloat(bbox[2]);
-      var east = parseFloat(bbox[3]);
-
-      var bounds = [
-        [south, west],
-        [north, east]
-      ];
-
-      map.fitBounds(bounds, { padding: [20, 20] });
-
-      var latDiff = Math.abs(north - south);
-      var zoom = 15;
-      if (latDiff > 3) zoom = 8;
-      else if (latDiff > 0.5) zoom = 12;
-      else zoom = 15;
-
-      setTimeout(function() {
-        if (map.getZoom() < zoom) {
-          map.setZoom(zoom);
-        }
-      }, 120);
-    }
-
-    function updateUserLocation(lat, lng) {
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      if (userMarker) {
-        userMarker.setLatLng([lat, lng]);
-      } else {
-        var icon = L.divIcon({
-          html: '<div style="width:18px;height:18px;background:#1d4ed8;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 8px rgba(29,78,216,0.2)"></div>',
-          iconAnchor: [9, 9],
-          className: ''
-        });
-        userMarker = L.marker([lat, lng], { icon: icon }).addTo(map);
-      }
-      map.setView([lat, lng], 12);
-    }
-
-    function updatePumps(pumps) {
-      clusterGroup.clearLayers();
-      (pumps || []).forEach(function(pump) {
-        var lat = Number(pump.lat);
-        var lng = Number(pump.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-        function escapeHtml(value) {
-          return String(value == null ? '' : value).replace(/[&<>"']/g, function(character) {
-            if (character === '&') return '&amp;';
-            if (character === '<') return '&lt;';
-            if (character === '>') return '&gt;';
-            if (character === '"') return '&quot;';
-            return '&#39;';
-          });
-        }
-
-        var icon = L.divIcon({
-          html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:#00c896;border:2px solid #fff;box-shadow:0 2px 7px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center"><span style="width:8px;height:8px;border-radius:50%;background:#fff"></span></div>',
-          className: '',
-          iconSize: [30, 30],
-          iconAnchor: [15, 30],
-        });
-        var marker = L.marker([lat, lng], { icon: icon });
-        var details = [];
-        if (Number.isFinite(Number(pump.available_slots_today))) {
-          details.push(escapeHtml(pump.available_slots_today) + ' slots available');
-        }
-        if (Number.isFinite(Number(pump.distance_km))) {
-          details.push(escapeHtml(Number(pump.distance_km).toFixed(1)) + ' km away');
-        }
-        marker.bindPopup(
-          '<div class="pump-popup"><b>' + escapeHtml(pump.name || 'CNG Pump') + '</b><br/>' +
-          escapeHtml(pump.address || '') +
-          (details.length ? '<br/><span>' + details.join(' · ') + '</span>' : '') +
-          '</div>'
-        );
-        marker.on('click', function() {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'PUMP_TAP',
-            pumpId: pump.id
-          }));
-        });
-        clusterGroup.addLayer(marker);
-      });
-    }
-
-    function handleMessage(raw) {
-      var d = null;
-      try {
-        d = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch (_e) {
-        return;
-      }
-
-      if (!d) return;
-
-      if (d.type === 'UPDATE_LOCATION') {
-        updateUserLocation(parseFloat(d.lat), parseFloat(d.lng));
-      }
-
-      if (d.type === 'UPDATE_PUMPS') {
-        updatePumps(d.pumps || []);
-      }
-
-      if (d.type === 'ZOOM_REGION') {
-        zoomToRegion(d.bbox);
-      }
-    }
-
-    document.addEventListener('message', function(event) {
-      handleMessage(event.data);
-    });
-
-    window.addEventListener('message', function(event) {
-      handleMessage(event.data);
-    });
-
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
-  </script>
-</body>
-</html>`;
-}
-
-export default function MapView({ userLat, userLng, pumps, searchRegion, onPumpPress }: Props) {
+export default function MapView({ device, pumps, searchRegion, cameraCommand, onUserGesture, onPumpPress }: Props) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const webViewRef = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
+  const [tiles, setTiles] = useState<'loading' | 'ok' | 'failed'>('loading');
 
-  const html = useMemo(() => mapHtml(), []);
+  // Built once with the theme at mount; later theme changes are pushed as CSS
+  // variables, so the map keeps its position, markers and zoom.
+  const html = useMemo(() => homeMapHtml(t), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const post = (payload: any) => {
     if (!ready) return;
@@ -208,8 +63,22 @@ export default function MapView({ userLat, userLng, pumps, searchRegion, onPumpP
   };
 
   useEffect(() => {
-    post({ type: 'UPDATE_LOCATION', lat: userLat, lng: userLng });
-  }, [userLat, userLng, ready]);
+    post({ type: 'THEME', vars: mapThemeVars(t) });
+  }, [t, ready]);
+
+  useEffect(() => {
+    post({
+      type: 'UPDATE_LOCATION',
+      lat: device?.lat ?? null,
+      lng: device?.lng ?? null,
+      accuracy: device?.accuracy ?? null,
+      live: !!device?.live,
+    });
+  }, [device?.lat, device?.lng, device?.accuracy, device?.live, ready]);
+
+  useEffect(() => {
+    if (cameraCommand) post({ type: 'CENTER', ...cameraCommand });
+  }, [cameraCommand?.seq, ready]);
 
   useEffect(() => {
     post({ type: 'UPDATE_PUMPS', pumps });
@@ -226,12 +95,20 @@ export default function MapView({ userLat, userLng, pumps, searchRegion, onPumpP
     }
   }, [searchRegion, ready]);
 
+  // If the page never reports a drawn tile (offline, blocked), say so instead of staying blank.
+  useEffect(() => {
+    if (tiles !== 'loading') return;
+    const id = setTimeout(() => setTiles((s) => (s === 'loading' ? 'failed' : s)), 15000);
+    return () => clearTimeout(id);
+  }, [tiles]);
+
   return (
     <View style={styles.container}>
       <WebView
         ref={webViewRef}
         source={{ html }}
         style={styles.webview}
+        userAgent={MAP_USER_AGENT}
         originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled
@@ -242,6 +119,12 @@ export default function MapView({ userLat, userLng, pumps, searchRegion, onPumpP
               setReady(true);
               return;
             }
+            if (data.type === 'TILES_LOADED') return setTiles('ok');
+            if (data.type === 'TILES_FAILED') return setTiles('failed');
+            if (data.type === 'USER_GESTURE') {
+              onUserGesture?.();
+              return;
+            }
             if (data.type === 'PUMP_TAP' && onPumpPress) {
               onPumpPress(data.pumpId);
             }
@@ -250,16 +133,54 @@ export default function MapView({ userLat, userLng, pumps, searchRegion, onPumpP
           }
         }}
       />
+      {tiles === 'loading' ? (
+        <View style={styles.status} pointerEvents="none">
+          <ActivityIndicator size="small" color={t.colors.brandText} />
+          <Text style={styles.statusText}>Loading map...</Text>
+        </View>
+      ) : null}
+      {tiles === 'failed' ? (
+        <View style={styles.status}>
+          <Text style={styles.statusText}>Map tiles could not be loaded.</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => {
+              setTiles('loading');
+              post({ type: 'RETRY_TILES' });
+            }}
+          >
+            <Text style={styles.retry}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-});
+const createStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.colors.bgAlt,
+    },
+    webview: {
+      flex: 1,
+      backgroundColor: t.colors.bgAlt,
+    },
+    status: {
+      position: 'absolute',
+      top: 188,
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: t.colors.surfaceRaised,
+      borderColor: t.colors.border,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+    },
+    statusText: { color: t.colors.textSecondary, fontSize: 12, fontWeight: '600' },
+    retry: { color: t.colors.brandText, fontWeight: '800', fontSize: 13 },
+  });

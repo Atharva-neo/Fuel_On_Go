@@ -7,9 +7,15 @@ export interface LocationBbox {
   west: number;
 }
 
+// This store holds the area the user is *browsing* (a manually searched
+// place). It is deliberately separate from the live device position, which
+// lives in src/location (see controller.ts). `mode === 'device'` means "show
+// me what is around my phone"; `'manual'` means a searched/selected area.
+// Picking a manual area never touches the device's GPS coordinates.
 interface LocationState {
-  lat: number;
-  lng: number;
+  mode: 'device' | 'manual';
+  lat: number | null;
+  lng: number | null;
   city: string;
   district: string;
   displayName: string;
@@ -24,25 +30,29 @@ interface LocationState {
     displayName?: string;
     bbox?: LocationBbox | null;
   }) => void;
+  /** Go back to following the device's real position. */
+  followDevice: () => void;
   setBbox: (bbox: LocationBbox | null) => void;
   clear: () => void;
 }
 
-const DEFAULT_LOCATION = {
-  lat: 16.705,
-  lng: 74.2433,
-  city: 'Kolhapur',
-  district: 'Kolhapur',
-  displayName: 'Kolhapur, Maharashtra',
+const DEVICE_MODE = {
+  mode: 'device' as const,
+  lat: null,
+  lng: null,
+  city: '',
+  district: '',
+  displayName: '',
+  bbox: null,
 };
 
 export const useLocationStore = create<LocationState>((set) => ({
-  ...DEFAULT_LOCATION,
-  bbox: null,
+  ...DEVICE_MODE,
   isSet: false,
 
   setLocation: ({ lat, lng, city, district, displayName, bbox }) => {
     set({
+      mode: 'manual',
       lat,
       lng,
       city,
@@ -53,11 +63,13 @@ export const useLocationStore = create<LocationState>((set) => ({
     });
   },
 
+  followDevice: () => set({ ...DEVICE_MODE }),
+
   setBbox: (bbox) => {
     set({ bbox });
   },
 
   clear: () => {
-    set({ ...DEFAULT_LOCATION, bbox: null, isSet: false });
+    set({ ...DEVICE_MODE, isSet: false });
   },
 }));

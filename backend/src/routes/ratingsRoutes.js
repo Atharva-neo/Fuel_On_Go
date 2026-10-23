@@ -1,62 +1,86 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+const { ratings } = require('../services/ratingInstance');
 
-// ─── GET /api/ratings/:pumpId ─────────────────────────────────
-router.get('/:pumpId', async (req, res) => {
+const fail = (res, err) => res.status(err.status || 500).json({ error: err.message, code: err.code });
+const page = (q) => ({
+  limit: Math.min(Math.max(parseInt(q.limit, 10) || 20, 1), 50),
+  offset: Math.max(parseInt(q.offset, 10) || 0, 0),
+});
+
+async function roleOf(userId) {
+  const { data } = await supabase.from('users').select('role').eq('id', userId).maybeSingle();
+  return data?.role;
+}
+
+// POST /api/ratings -- rate the pump of one completed booking.
+// The pump comes from the booking; a client-sent pump_id is ignored.
+router.post('/', authenticate, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('ratings')
-      .select('*')
-      .eq('pump_id', req.params.pumpId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-
-    const avgRating = data.length > 0
-      ? Math.round((data.reduce((s, r) => s + r.rating, 0) / data.length) * 10) / 10
-      : 4.0;
-
-    res.json({ ratings: data, avg_rating: avgRating, count: data.length });
+    const result = await ratings.submit({ userId: req.user.sub, body: req.body });
+    return res.status(result.created ? 201 : 200).json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return fail(res, err);
   }
 });
 
-// ─── POST /api/ratings ────────────────────────────────────────
-router.post('/', authenticate, async (req, res) => {
+// GET /api/ratings/booking/:bookingId -- can I rate this booking? (and my existing rating)
+router.get('/booking/:bookingId', authenticate, async (req, res) => {
   try {
-    const { pump_id, rating, review } = req.body;
-    if (!pump_id || !rating) return res.status(400).json({ error: 'pump_id and rating required' });
-    if (rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be 1-5' });
-
-    const { data, error } = await supabase
-      .from('ratings')
-      .upsert({ pump_id, user_id: req.user.sub, rating, review }, { onConflict: 'pump_id,user_id' })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Update pump's cached avg rating
-    const { data: allRatings } = await supabase
-      .from('ratings')
-      .select('rating')
-      .eq('pump_id', pump_id);
-
-    if (allRatings) {
-      const avg = allRatings.reduce((s, r) => s + r.rating, 0) / allRatings.length;
-      await supabase
-        .from('pumps')
-        .update({ rating: Math.round(avg * 10) / 10 })
-        .eq('id', pump_id);
-    }
-
-    res.status(201).json(data);
+    return res.json(await ratings.eligibility({ userId: req.user.sub, bookingId: req.params.bookingId }));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return fail(res, err);
+  }
+});
+
+// GET /api/ratings/pump/:pumpId -- public: average, count, distribution, visible reviews.
+router.get('/pump/:pumpId', async (req, res) => {
+  try {
+    return res.json(await ratings.pumpReviews({ pumpId: req.params.pumpId, ...page(req.query) }));
+  } catch (err) {
+    return fail(res, err);
+  }
+});
+
+// GET /api/ratings/owner/:pumpId -- owner view of feedback for their own pump.
+router.get('/owner/:pumpId', authenticate, async (req, res) => {
+  try {
+    const role = await roleOf(req.user.sub);
+    if (!['pump_owner', 'admin'].includes(role)) return res.status(403).json({ error: 'Pump owner access required' });
+    return res.json(await ratings.ownerFeedback({ ownerId: req.user.sub, pumpId: req.params.pumpId, ...page(req.query) }));
+  } catch (err) {
+    return fail(res, err);
+  }
+});
+
+// POST /api/ratings/:ratingId/report -- owner flags a review for moderation (cannot delete/edit it).
+router.post('/:ratingId/report', authenticate, async (req, res) => {
+  try {
+    const role = await roleOf(req.user.sub);
+    if (!['pump_owner', 'admin'].includes(role)) return res.status(403).json({ error: 'Pump owner access required' });
+    const out = await ratings.report({ ownerId: req.user.sub, ratingId: req.params.ratingId, reason: req.body?.reason });
+    return res.status(out.duplicate ? 200 : 201).json(out);
+  } catch (err) {
+    return fail(res, err);
+  }
+});
+
+// POST /api/ratings/reports/:reportId/resolve -- admin only; 'uphold' hides the review, 'dismiss' keeps it.
+router.post('/reports/:reportId/resolve', authenticate, async (req, res) => {
+  try {
+    if ((await roleOf(req.user.sub)) !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    return res.json(
+      await ratings.resolveReport({
+        adminId: req.user.sub,
+        reportId: req.params.reportId,
+        action: req.body?.action,
+        note: req.body?.note,
+      })
+    );
+  } catch (err) {
+    return fail(res, err);
   }
 });
 

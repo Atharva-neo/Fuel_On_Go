@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { colors, radius, fontSize } from '../../theme/stitch';
+import { radius, fontSize } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 export type BadgeSize = 'sm' | 'md';
@@ -12,13 +13,14 @@ interface BadgeProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const variantMap = {
-  success: { bg: colors.successBg, text: colors.success },
-  warning: { bg: colors.warningBg, text: colors.warning },
-  danger: { bg: colors.dangerBg, text: colors.danger },
-  info: { bg: colors.infoBg, text: colors.secondary },
-  neutral: { bg: colors.border, text: colors.textSecondary },
-} as const;
+const variantMap = (t: Theme) =>
+  ({
+    success: { bg: t.colors.successTint, text: t.colors.successText },
+    warning: { bg: t.colors.warningTint, text: t.colors.warningText },
+    danger: { bg: t.colors.dangerTint, text: t.colors.dangerText },
+    info: { bg: t.colors.infoTint, text: t.colors.infoText },
+    neutral: { bg: t.colors.border, text: t.colors.textSecondary },
+  }) as const;
 
 const sizeMap = {
   sm: { px: 8, py: 3, fs: fontSize.xs },
@@ -26,7 +28,9 @@ const sizeMap = {
 } as const;
 
 export default function Badge({ variant = 'neutral', size = 'md', children, style }: BadgeProps) {
-  const v = variantMap[variant];
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
+  const v = variantMap(t)[variant];
   const s = sizeMap[size];
   return (
     <View
@@ -45,7 +49,7 @@ export default function Badge({ variant = 'neutral', size = 'md', children, styl
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   base: {
     borderRadius: radius.full,
     alignSelf: 'flex-start',

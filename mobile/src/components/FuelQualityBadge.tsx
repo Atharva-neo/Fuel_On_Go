@@ -1,22 +1,25 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Typography, Spacing, BorderRadius } from '../config/theme';
+import { Typography, Spacing, BorderRadius } from '../config/theme';
+import { useTheme, type Theme } from '../theme';
 
 interface FuelQualityBadgeProps {
   availability: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
 export default function FuelQualityBadge({ availability }: FuelQualityBadgeProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const getConfig = () => {
     switch (availability) {
       case 'HIGH':
-        return { label: 'High Avail.', bg: Colors.successBg, color: Colors.success };
+        return { label: 'High Avail.', bg: t.colors.successTint, color: t.colors.successText };
       case 'MEDIUM':
-        return { label: 'Medium', bg: Colors.warningBg, color: Colors.warning };
+        return { label: 'Medium', bg: t.colors.warningTint, color: t.colors.warningText };
       case 'LOW':
-        return { label: 'Low Avail.', bg: Colors.errorBg, color: Colors.error };
+        return { label: 'Low Avail.', bg: t.colors.dangerTint, color: t.colors.dangerText };
       default:
-        return { label: 'Unknown', bg: Colors.surfaceElevated, color: Colors.textMuted };
+        return { label: 'Unknown', bg: t.colors.surfaceRaised, color: t.colors.textMuted };
     }
   };
 
@@ -30,7 +33,7 @@ export default function FuelQualityBadge({ availability }: FuelQualityBadgeProps
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getCurrentTheme, useTheme, useThemeStore, type Theme } from './src/theme';
+import Logo from './src/components/Logo';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,9 +48,10 @@ class ErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.error) {
+      const styles = createStyles(getCurrentTheme());
       return (
         <View style={styles.center}>
-          <Text style={styles.title}>⚡ Fuel on Go</Text>
+          <Logo size={104} />
           <Text style={styles.errorText}>Something went wrong.</Text>
           <ScrollView style={{ maxHeight: 200, marginTop: 12 }}>
             <Text style={styles.errorDetail}>
@@ -71,6 +74,8 @@ class ErrorBoundary extends React.Component<
 }
 
 function AppContent() {
+  const t = useTheme();
+  const styles = createStyles(t);
   const [ready, setReady] = useState(false);
   const [navError, setNavError] = useState<string | null>(null);
   const [RootNav, setRootNav] = useState<React.ComponentType | null>(null);
@@ -92,7 +97,7 @@ function AppContent() {
   if (!ready) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>⚡ Fuel on Go</Text>
+        <Logo size={104} />
         <Text style={styles.subtitle}>Starting up...</Text>
       </View>
     );
@@ -101,7 +106,7 @@ function AppContent() {
   if (navError || !RootNav) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>⚡ Fuel on Go</Text>
+        <Logo size={104} />
         <Text style={styles.errorText}>
           {navError || 'Failed to load navigator'}
         </Text>
@@ -120,11 +125,25 @@ function AppContent() {
 }
 
 export default function App() {
+  const hydrated = useThemeStore((s) => s.hydrated);
+  const hydrate = useThemeStore((s) => s.hydrate);
+  const t = useTheme();
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  // Until the saved preference is read, paint only the themed background (no
+  // content), so a Latte user never sees a Mocha flash on startup.
+  if (!hydrated) {
+    return <View style={{ flex: 1, backgroundColor: t.colors.bg }} />;
+  }
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.colors.bg }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
+          <StatusBar style={t.isDark ? 'light' : 'dark'} />
           <ErrorBoundary>
             <AppContent />
           </ErrorBoundary>
@@ -134,46 +153,46 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   center: {
     flex: 1,
-    backgroundColor: '#0A0E1A',
+    backgroundColor: t.colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   title: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontSize: 32,
     fontWeight: '800',
     marginBottom: 12,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.5)',
+    color: t.colors.textMuted,
     fontSize: 14,
     marginTop: 8,
   },
   errorText: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
     fontSize: 13,
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 20,
   },
   errorDetail: {
-    color: 'rgba(255,255,255,0.6)',
+    color: t.colors.textSecondary,
     fontSize: 11,
     paddingHorizontal: 20,
   },
   retryBtn: {
     marginTop: 20,
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
   },
   retryText: {
-    color: '#0A0A0A',
+    color: t.colors.onBrand,
     fontWeight: '800',
     fontSize: 14,
   },

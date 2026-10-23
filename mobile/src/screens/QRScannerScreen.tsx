@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import api from '../config/api';
+import { useTheme, type Theme } from '../theme';
 
 interface ScanResult {
   success?: boolean;
@@ -13,6 +14,8 @@ interface ScanResult {
 }
 
 const QRScannerScreen = () => {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -91,7 +94,7 @@ const QRScannerScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -103,7 +106,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 20,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -114,14 +117,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   button: {
-    backgroundColor: '#00c896',
+    backgroundColor: t.colors.brand,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: t.colors.onBrand,
     fontSize: 16,
     fontWeight: 'bold',
   },

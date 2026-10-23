@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocationStore } from '../../store/locationStore';
+import { useTheme, type Theme } from '../../theme';
 
 const QUICK_CITIES = [
   { city: 'Pune', district: 'Pune', lat: 18.5204, lng: 73.8567 },
@@ -12,6 +13,8 @@ const QUICK_CITIES = [
 ];
 
 export default function LocationSetupScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const setLocation = useLocationStore((s) => s.setLocation);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -95,16 +98,16 @@ export default function LocationSetupScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.bg,
     padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0f172a',
+    color: t.colors.text,
     marginBottom: 12,
   },
   searchRow: {
@@ -115,41 +118,41 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: t.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
   },
   searchBtn: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: t.colors.info,
     borderRadius: 10,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchBtnText: {
-    color: '#fff',
+    color: t.colors.onInfo,
     fontWeight: '700',
   },
   quickTitle: {
     fontWeight: '700',
-    color: '#475569',
+    color: t.colors.textSecondary,
     marginBottom: 8,
   },
   row: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: t.colors.border,
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
   },
   rowTitle: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 16,
   },
   rowSub: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     marginTop: 2,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,8 +12,12 @@ import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { LocationIcon, ChevronRightIcon, CheckIcon, CalendarIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ThemeToggle from '../../components/ThemeToggle';
+import { useTheme, type Theme } from '../../theme';
 
 export default function AdminDashboardScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const logout = useAuthStore((s) => s.logout);
 
   const handleLogout = () => {
@@ -56,7 +60,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#00C896" />
+        <ActivityIndicator size="large" color={t.colors.brandText} />
       </View>
     );
   }
@@ -64,6 +68,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (error) {
     return (
       <View style={styles.loader}>
+        <ThemeToggle style={{ position: 'absolute', top: 52, right: 20 }} />
         <Text style={styles.errorTitle}>Connection Failed</Text>
         <Text style={styles.errorMsg}>{error || 'No data available.'}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchDashboard}>
@@ -71,9 +76,9 @@ export default function AdminDashboardScreen({ navigation }: any) {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleLogout}
-          style={[styles.retryBtn, { backgroundColor: 'rgba(239,68,68,0.15)', marginTop: 16 }]}
+          style={[styles.retryBtn, { backgroundColor: t.colors.dangerTint, marginTop: 16 }]}
         >
-          <Text style={[styles.retryText, { color: '#EF4444' }]}>Logout</Text>
+          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>Logout</Text>
         </TouchableOpacity>
       </View>
     );
@@ -82,11 +87,12 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (!dashData?.pump) {
     return (
       <View style={styles.loader}>
+        <ThemeToggle style={{ position: 'absolute', top: 52, right: 20 }} />
         <TouchableOpacity
           onPress={handleLogout}
-          style={[styles.retryBtn, { backgroundColor: 'rgba(239,68,68,0.15)', marginBottom: 32 }]}
+          style={[styles.retryBtn, { backgroundColor: t.colors.dangerTint, marginBottom: 32 }]}
         >
-          <Text style={[styles.retryText, { color: '#EF4444' }]}>Logout</Text>
+          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>Logout</Text>
         </TouchableOpacity>
         <Text style={styles.errorTitle}>No pump registered yet.</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.navigate('AddPump')}>
@@ -102,6 +108,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerGreeting}>Station Dashboard</Text>
+          <ThemeToggle size={20} style={{ marginLeft: 'auto', marginRight: 10, width: 40, height: 40 }} />
           <TouchableOpacity
             onPress={handleLogout}
             style={styles.logoutBtn}
@@ -134,7 +141,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>No Shows</Text>
-          <Text style={[styles.statValueHighlight, { color: '#EF4444' }]}>{Number(stats?.no_shows || 0)}</Text>
+          <Text style={[styles.statValueHighlight, { color: t.colors.dangerText }]}>{Number(stats?.no_shows || 0)}</Text>
         </View>
       </View>
 
@@ -145,62 +152,77 @@ export default function AdminDashboardScreen({ navigation }: any) {
           style={styles.actionCard}
           onPress={() => navigation.navigate('ScanQR')}
         >
-          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(0, 200, 150, 0.1)' }]}>
-            <CheckIcon size={24} color="#00C896" />
+          <View style={[styles.actionIconBox, { backgroundColor: t.colors.brandTint }]}>
+            <CheckIcon size={24} color={t.colors.brandText} />
           </View>
           <View style={styles.actionTextContent}>
             <Text style={styles.actionTitle}>Scan QR Code</Text>
             <Text style={styles.actionSubtitle}>Verify arriving customers</Text>
           </View>
-          <ChevronRightIcon size={20} color="#71717A" />
+          <ChevronRightIcon size={20} color={t.colors.textSecondary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={() => navigation.navigate('OwnerFeedback')}
+          accessibilityRole="button"
+        >
+          <View style={[styles.actionIconBox, { backgroundColor: t.colors.warningTint }]}>
+            <MaterialCommunityIcons name="star-outline" size={24} color={t.colors.warningText} />
+          </View>
+          <View style={styles.actionTextContent}>
+            <Text style={styles.actionTitle}>Customer Feedback</Text>
+            <Text style={styles.actionSubtitle}>Ratings and reviews for your pump</Text>
+          </View>
+          <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.actionCard}
           onPress={() => navigation.navigate('SlotManagement')}
         >
-          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-            <CalendarIcon size={24} color="#3B82F6" />
+          <View style={[styles.actionIconBox, { backgroundColor: t.colors.infoTint }]}>
+            <CalendarIcon size={24} color={t.colors.infoText} />
           </View>
           <View style={styles.actionTextContent}>
             <Text style={styles.actionTitle}>Manage Slots</Text>
             <Text style={styles.actionSubtitle}>Update capacity & timings</Text>
           </View>
-          <ChevronRightIcon size={20} color="#71717A" />
+          <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionCard}
           onPress={() => navigation.navigate('CngUpdate')}
         >
-          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-            <MaterialCommunityIcons name="pencil-outline" size={24} color="#F59E0B" />
+          <View style={[styles.actionIconBox, { backgroundColor: t.colors.warningTint }]}>
+            <MaterialCommunityIcons name="pencil-outline" size={24} color={t.colors.warningText} />
           </View>
           <View style={styles.actionTextContent}>
             <Text style={styles.actionTitle}>Edit Pump Details</Text>
             <Text style={styles.actionSubtitle}>Name, rate, timings, address & more</Text>
           </View>
-          <ChevronRightIcon size={20} color="#71717A" />
+          <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.bg,
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.bg,
     padding: 32,
   },
   errorTitle: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
@@ -208,20 +230,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorMsg: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
   },
   retryBtn: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 16,
   },
   retryText: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 16,
   },
@@ -233,7 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: t.colors.border,
   },
   headerTop: {
     flexDirection: 'row',
@@ -243,36 +265,36 @@ const styles = StyleSheet.create({
   },
   headerGreeting: {
     fontSize: 16,
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontWeight: '600',
   },
   logoutBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: t.colors.dangerTint,
   },
   logoutBtnText: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
     fontSize: 13,
     fontWeight: '700',
   },
   pumpName: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: t.colors.text,
     letterSpacing: -1,
     marginBottom: 8,
   },
   pumpAddress: {
     fontSize: 15,
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     marginBottom: 20,
     lineHeight: 22,
   },
   liveStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 200, 150, 0.15)',
+    backgroundColor: t.colors.brandTint,
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -283,10 +305,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
   },
   liveText: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -298,35 +320,35 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.surface,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: t.colors.border,
   },
   statCardFull: {
     flex: 1,
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.surface,
     borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: t.colors.border,
   },
   statLabel: {
-    color: '#71717A',
+    color: t.colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
   },
   statValue: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: -1,
   },
   statValueHighlight: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: -1,
@@ -337,19 +359,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: t.colors.text,
     marginBottom: 16,
     letterSpacing: -0.5,
   },
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.surface,
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: t.colors.border,
   },
   actionIconBox: {
     width: 48,
@@ -363,13 +385,13 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   actionTitle: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 4,
   },
   actionSubtitle: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },

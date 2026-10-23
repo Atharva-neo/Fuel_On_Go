@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +11,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ChevronRightIcon, CalendarIcon } from '../../components/ui/Icons';
+import { useTheme, type Theme } from '../../theme';
+import BookingRateAction from '../../components/BookingRateAction';
+
 
 type TabType = 'upcoming' | 'completed' | 'cancelled';
 
@@ -24,6 +27,8 @@ function statusMeta(status: string) {
 }
 
 export default function MyBookingsScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
@@ -95,9 +100,13 @@ export default function MyBookingsScreen({ navigation }: any) {
           <Text style={styles.priceText}>Fee: ₹{Number(item.booking_fee || item.amount_paid_now || 0).toFixed(2)}</Text>
         </View>
 
+        {item.status === 'arrived' ? (
+          <BookingRateAction bookingId={item.id} pumpId={item.pump_id} pumpName={item.pump_name || item.pump?.name || 'this pump'} />
+        ) : null}
+
         <View style={styles.cardFooter}>
           <Text style={styles.viewDetailsText}>View Details</Text>
-          <ChevronRightIcon size={16} color="#00C896" />
+          <ChevronRightIcon size={16} color={t.colors.brandText} />
         </View>
       </TouchableOpacity>
     );
@@ -106,7 +115,7 @@ export default function MyBookingsScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#0A0A0A" />
+        <ActivityIndicator size="large" color={t.colors.text} />
       </View>
     );
   }
@@ -134,7 +143,7 @@ export default function MyBookingsScreen({ navigation }: any) {
       {filteredBookings.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconCircle}>
-            <CalendarIcon size={32} color="#A1A1AA" />
+            <CalendarIcon size={32} color={t.colors.textMuted} />
           </View>
           <Text style={styles.emptyTitle}>No Bookings Found</Text>
           <Text style={styles.emptySubtitle}>You have no {activeTab} bookings at the moment.</Text>
@@ -152,29 +161,29 @@ export default function MyBookingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.bg,
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.surfaceAlt,
   },
   header: {
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: t.colors.border,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: -1,
   },
   tabsContainer: {
@@ -187,21 +196,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: t.colors.border,
   },
   tabActive: {
-    backgroundColor: '#0A0A0A',
-    borderColor: '#0A0A0A',
+    backgroundColor: t.colors.inverse,
+    borderColor: t.colors.border,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#71717A',
+    color: t.colors.textSecondary,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: t.colors.onInverse,
     fontWeight: '700',
   },
   listContainer: {
@@ -209,13 +218,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
+    borderColor: t.colors.border,
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -230,7 +239,7 @@ const styles = StyleSheet.create({
   pumpName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
     flex: 1,
     marginRight: 12,
   },
@@ -240,32 +249,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusGreen: {
-    backgroundColor: 'rgba(0, 200, 150, 0.15)',
+    backgroundColor: t.colors.brandTint,
   },
   statusAmber: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: t.colors.warningTint,
   },
   statusCancelled: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: t.colors.dangerTint,
   },
   statusCompleted: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: t.colors.infoTint,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '800',
   },
   statusTextGreen: {
-    color: '#00C896',
+    color: t.colors.brandText,
   },
   statusTextAmber: {
-    color: '#F59E0B',
+    color: t.colors.warningText,
   },
   statusTextCancelled: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
   },
   statusTextCompleted: {
-    color: '#3B82F6',
+    color: t.colors.infoText,
   },
   cardBody: {
     marginBottom: 16,
@@ -273,25 +282,25 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#71717A',
+    color: t.colors.textSecondary,
     marginBottom: 4,
   },
   priceText: {
     fontSize: 14,
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontWeight: '500',
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: t.colors.border,
     paddingTop: 16,
   },
   viewDetailsText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#00C896',
+    color: t.colors.brandText,
     marginRight: 4,
   },
   emptyContainer: {
@@ -304,7 +313,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F4F4F5',
+    backgroundColor: t.colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -312,12 +321,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#71717A',
+    color: t.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },

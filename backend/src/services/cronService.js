@@ -1,44 +1,33 @@
 /**
  * CronService — runs periodic tasks
- * - Every hour: generate slots for tomorrow if not yet created
- * - Every 5 minutes: mark expired confirmed bookings as no_show
+ * - Every hour: make sure today + the next 6 days have slots (from each pump's saved hours)
+ * No-shows are NOT marked automatically any more: they need pump-operator
+ * verification (POST /api/bookings/:id/no-show), see trustScoreService.
  */
 const { supabase } = require('../config/supabase');
+const { slotStore } = require('./slotInstance');
+const { ensureUpcoming } = require('./slotGenerator');
 
-const FIVE_MIN = 5 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
 
-async function markNoShows() {
+async function generateUpcomingSlots() {
   try {
-    const { data, error } = await supabase.rpc('mark_no_shows');
-    if (error) throw error;
-    if (data > 0) console.log(`[Cron] Marked ${data} no-shows`);
-  } catch (err) {
-    console.error('[Cron] mark_no_shows error:', err.message);
-  }
-}
-
-async function generateTomorrowSlots() {
-  try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    const { data: pumps } = await supabase
+    const { data: pumps, error } = await supabase
       .from('pumps')
-      .select('id')
+      .select('id, working_hours_start, working_hours_end, vehicles_per_slot')
       .eq('is_active', true);
+    if (error) throw error;
 
     let total = 0;
-    for (const pump of (pumps || [])) {
-      const { data } = await supabase.rpc('generate_daily_slots', {
-        p_pump_id: pump.id,
-        p_date: tomorrowStr,
-      });
-      total += data || 0;
+    for (const pump of pumps || []) {
+      try {
+        const r = await ensureUpcoming({ store: slotStore, pump });
+        total += r.created;
+      } catch (err) {
+        console.error(`[Cron] slots for pump ${pump.id}:`, err.message);
+      }
     }
-
-    if (total > 0) console.log(`[Cron] Generated ${total} slots for ${tomorrowStr}`);
+    if (total > 0) console.log(`[Cron] Generated ${total} slots`);
   } catch (err) {
     console.error('[Cron] generate slots error:', err.message);
   }
@@ -50,13 +39,11 @@ function start() {
   if (intervals.length) return;
 
   // Run immediately on boot
-  markNoShows();
-  generateTomorrowSlots();
+  generateUpcomingSlots();
 
   // Then schedule
   intervals = [
-    setInterval(markNoShows, FIVE_MIN),
-    setInterval(generateTomorrowSlots, ONE_HOUR),
+    setInterval(generateUpcomingSlots, ONE_HOUR),
   ];
 
   console.log('[Cron] Service started');

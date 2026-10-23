@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme, type Theme } from '../theme';
 
 interface Slot {
   id: string | number;
@@ -24,6 +25,8 @@ interface SlotCarouselProps {
 }
 
 export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPress }: SlotCarouselProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const now = new Date();
 
   const isBookable = (slot: Slot) => {
@@ -88,7 +91,7 @@ export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     paddingHorizontal: 4,
     paddingVertical: 8,
@@ -98,63 +101,63 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: t.colors.border,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: t.colors.surface,
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   slotAvailable: {
-    borderColor: '#00C896',
+    borderColor: t.colors.brand,
   },
   slotSelected: {
-    backgroundColor: '#00C896',
-    borderColor: '#00C896',
+    backgroundColor: t.colors.brand,
+    borderColor: t.colors.brand,
     shadowOpacity: 0.15,
     elevation: 4,
   },
   slotFull: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#E4E4E7',
+    backgroundColor: t.colors.surfaceAlt,
+    borderColor: t.colors.border,
   },
   slotPast: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#E4E4E7',
+    backgroundColor: t.colors.surfaceAlt,
+    borderColor: t.colors.border,
   },
   slotDeactivated: {
-    backgroundColor: '#F4F4F5',
-    borderColor: '#E4E4E7',
+    backgroundColor: t.colors.surfaceAlt,
+    borderColor: t.colors.border,
   },
   timeText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
     marginBottom: 2,
   },
   timeTextSelected: {
-    color: '#FFFFFF',
+    color: t.colors.onBrand,
   },
   timeTextDisabled: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
   },
   metaText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#00C896',
+    color: t.colors.brandText,
   },
   metaTextSelected: {
-    color: '#ECFDF5',
+    color: t.colors.onBrand,
   },
   metaTextDisabled: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
   },
   strike: {
     textDecorationLine: 'line-through',
-    color: '#D4D4D8',
+    color: t.colors.textMuted,
   },
 });

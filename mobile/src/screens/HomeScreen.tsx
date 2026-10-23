@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,15 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import api from '../config/api';
 import { useNavigation } from '@react-navigation/native';
 import { SearchIcon, LocationIcon, ChevronRightIcon } from '../components/ui/Icons';
+import { useTheme, type Theme } from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.8;
 const SHEET_MIN_HEIGHT = SCREEN_HEIGHT * 0.3;
 
 const HomeScreen = () => {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const navigation = useNavigation<any>();
   const [pumps, setPumps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +104,7 @@ const HomeScreen = () => {
       <View style={styles.pumpHeader}>
         <View style={styles.pumpTitleRow}>
           <Text style={styles.pumpName}>{item.name}</Text>
-          <View style={[styles.statusDot, { backgroundColor: '#00C896' }]} />
+          <View style={[styles.statusDot, { backgroundColor: t.colors.brand }]} />
         </View>
         <Text style={styles.pumpDistance}>{item.distance.toFixed(1)} km</Text>
       </View>
@@ -113,7 +116,7 @@ const HomeScreen = () => {
         </View>
         <TouchableOpacity style={styles.bookBtn} onPress={() => navigation.navigate('PumpDetail', { pumpId: item.id })}>
           <Text style={styles.bookBtnText}>Book Slot</Text>
-          <ChevronRightIcon size={16} color="#FFFFFF" />
+          <ChevronRightIcon size={16} color={t.colors.onInverse} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -147,13 +150,13 @@ const HomeScreen = () => {
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <LocationIcon size={20} color="#00C896" />
+          <LocationIcon size={20} color={t.colors.brandText} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search nearby CNG stations..."
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={t.colors.placeholder}
           />
-          <SearchIcon size={20} color="#0A0A0A" />
+          <SearchIcon size={20} color={t.colors.text} />
         </View>
       </View>
 
@@ -171,7 +174,7 @@ const HomeScreen = () => {
 
         {loading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#0A0A0A" />
+            <ActivityIndicator size="large" color={t.colors.text} />
           </View>
         ) : (
           <FlatList
@@ -187,10 +190,10 @@ const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0FAF6',
+    backgroundColor: t.colors.brandTint,
   },
   map: {
     ...StyleSheet.absoluteFill,
@@ -199,17 +202,17 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 200, 150, 0.2)',
+    backgroundColor: t.colors.brandTint,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#00C896',
+    borderColor: t.colors.brand,
   },
   markerDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
   },
   searchContainer: {
     position: 'absolute',
@@ -221,11 +224,11 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 56,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: t.colors.text,
   },
   bottomSheet: {
     position: 'absolute',
@@ -244,10 +247,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: -SCREEN_HEIGHT,
     height: SCREEN_HEIGHT,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -262,7 +265,7 @@ const styles = StyleSheet.create({
   dragHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: t.colors.surfaceAlt,
     borderRadius: 2,
   },
   sheetHeader: {
@@ -275,34 +278,34 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: -0.5,
   },
   sortChip: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.surfaceAlt,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: t.colors.border,
   },
   sortText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0A0A0A',
+    color: t.colors.text,
   },
   listContainer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
   pumpCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
+    borderColor: t.colors.border,
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   pumpName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: -0.5,
   },
   statusDot: {
@@ -333,11 +336,11 @@ const styles = StyleSheet.create({
   pumpDistance: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#71717A',
+    color: t.colors.textSecondary,
   },
   pumpAddress: {
     fontSize: 14,
-    color: '#71717A',
+    color: t.colors.textSecondary,
     marginBottom: 16,
     fontWeight: '500',
   },
@@ -347,18 +350,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   priceTag: {
-    backgroundColor: '#F0FAF6',
+    backgroundColor: t.colors.brandTint,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   priceText: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontWeight: '800',
     fontSize: 14,
   },
   bookBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.inverse,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -367,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   bookBtnText: {
-    color: '#FFFFFF',
+    color: t.colors.onInverse,
     fontWeight: '700',
     fontSize: 14,
   },

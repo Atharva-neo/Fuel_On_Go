@@ -3,6 +3,10 @@ const express = require('express');
 const router  = express.Router();
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+const { parseCoords } = require('../utils/coords');
+const { slotStore } = require('../services/slotInstance');
+const { getSlotsForDate, applyScheduleChange, ensureUpcoming, bookingsOutside, ScheduleError } = require('../services/slotGenerator');
+const { normalizeSchedule, istNow } = require('../services/slotSchedule');
 
 // Helper: ensure date is always YYYY-MM-DD, strip any time component
 function safeDate(d) {
@@ -297,38 +301,59 @@ router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
     if (!Object.keys(updates).length) {
       return res.status(400).json({ error: 'No editable fields provided' });
     }
+    if (updates.lat !== undefined || updates.lng !== undefined) {
+      const coords = parseCoords(updates.lat, updates.lng);
+      if (!coords) {
+        return res.status(400).json({ error: 'lat and lng must both be valid coordinates', code: 'INVALID_COORDINATES' });
+      }
+      updates.lat = coords.lat;
+      updates.lng = coords.lng;
+    }
 
-    // Narrowing operating hours could silently strand bookings that already
-    // exist for a slot outside the new window -- block the edit instead.
-    if (updates.working_hours_start || updates.working_hours_end) {
+    const scheduleTouched =
+      updates.working_hours_start !== undefined || updates.working_hours_end !== undefined || updates.vehicles_per_slot !== undefined;
+    let before = null;
+    if (scheduleTouched) {
       const { data: pumpNow, error: pumpNowErr } = await supabase
         .from('pumps')
-        .select('working_hours_start, working_hours_end')
+        .select('working_hours_start, working_hours_end, vehicles_per_slot')
         .eq('id', req.params.id)
         .single();
       if (pumpNowErr) throw pumpNowErr;
+      before = pumpNow;
 
-      const newStart = updates.working_hours_start || pumpNow.working_hours_start;
-      const newEnd = updates.working_hours_end || pumpNow.working_hours_end;
-      const today = new Date().toISOString().slice(0, 10);
+      if (updates.vehicles_per_slot !== undefined) {
+        const cap = Number(updates.vehicles_per_slot);
+        if (!Number.isInteger(cap) || cap < 1 || cap > 200) {
+          return res.status(400).json({ error: 'Vehicles per slot must be a whole number from 1 to 200.', code: 'INVALID_CAPACITY' });
+        }
+        updates.vehicles_per_slot = cap;
+      }
 
-      const { data: outOfRange, error: rangeErr } = await supabase
+      const newStart = updates.working_hours_start ?? pumpNow.working_hours_start;
+      const newEnd = updates.working_hours_end ?? pumpNow.working_hours_end;
+      const schedule = normalizeSchedule(newStart, newEnd);
+      if (!schedule.ok) return res.status(400).json({ error: schedule.message, code: schedule.code });
+      // Store the canonical form ("24:00" for midnight) so every reader agrees.
+      updates.working_hours_start = schedule.open;
+      updates.working_hours_end = schedule.close;
+
+      // Existing bookings are never cancelled or moved by a schedule change: if any would fall
+      // outside the new hours the edit is refused and the conflicts are listed.
+      const { data: upcoming, error: rangeErr } = await supabase
         .from('bookings')
-        .select('id, slot_date, slot_start, slot_end')
+        .select('id, slot_date, slot_start, slot_end, status')
         .eq('pump_id', req.params.id)
-        .in('status', ['confirmed', 'arrived'])
-        .gte('slot_date', today);
+        .in('status', ['pending', 'confirmed', 'arrived'])
+        .gte('slot_date', istNow().date);
       if (rangeErr) throw rangeErr;
-
-      const conflicts = (outOfRange || []).filter((b) => {
-        const start = String(b.slot_start).slice(0, 5);
-        const end = String(b.slot_end).slice(0, 5);
-        return start < newStart || end > newEnd;
-      });
-
+      const conflicts = bookingsOutside(schedule, upcoming || []);
       if (conflicts.length) {
-        return res.status(400).json({
-          error: `Cannot change hours to ${newStart}–${newEnd}: ${conflicts.length} existing booking(s) fall outside this window (e.g. ${conflicts[0].slot_date} ${String(conflicts[0].slot_start).slice(0, 5)}–${String(conflicts[0].slot_end).slice(0, 5)}). Those bookings must be resolved first.`,
+        const c = conflicts[0];
+        return res.status(409).json({
+          error: `Cannot change hours to ${schedule.open}-${schedule.close}: ${conflicts.length} existing booking(s) fall outside this window (e.g. ${c.slot_date} ${String(c.slot_start).slice(0, 5)}-${String(c.slot_end).slice(0, 5)}). Those bookings must be resolved first.`,
+          code: 'BOOKINGS_OUTSIDE_HOURS',
+          conflicts: conflicts.slice(0, 10),
         });
       }
     }
@@ -341,9 +366,21 @@ router.patch('/pumps/:id', authenticate, requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json(data);
+
+    // Regenerate upcoming slots from the schedule that was just SAVED. The pump update is already
+    // committed; if only the slot sync fails the owner is told, and Manage Slots retries lazily.
+    let slotSync = null;
+    if (scheduleTouched) {
+      try {
+        slotSync = await applyScheduleChange({ store: slotStore, pump: data, before });
+      } catch (syncErr) {
+        console.error('[Slots] sync after pump update failed:', syncErr.message);
+        slotSync = { error: syncErr.message };
+      }
+    }
+    return res.json({ ...data, slot_sync: slotSync });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message, code: err.code });
   }
 });
 
@@ -352,6 +389,10 @@ router.post('/pumps', authenticate, async (req, res) => {
   try {
     const { name, address, city, district, lat, lng, cng_price_per_kg,
             working_hours_start, working_hours_end, vehicles_per_slot } = req.body;
+
+    if (!parseCoords(lat, lng)) {
+      return res.status(400).json({ error: 'A valid pump location (lat/lng) is required', code: 'INVALID_COORDINATES' });
+    }
 
     const { data, error } = await supabase
       .from('pumps')
@@ -389,7 +430,7 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     // Find this owner's pump
     const { data: pump, error: pumpErr } = await supabase
       .from('pumps')
-      .select('id, working_hours_start, working_hours_end')
+      .select('id, working_hours_start, working_hours_end, vehicles_per_slot')
       .eq('owner_id', userId)
       .limit(1)
       .maybeSingle();
@@ -397,52 +438,35 @@ router.get('/slots', authenticate, requireAdmin, async (req, res) => {
     if (pumpErr) throw pumpErr;
     if (!pump) return res.status(404).json({ error: 'No pump found for this account. Please register your pump first.' });
 
-    // Resolve date — strip any time component, default to today IST
+    // Resolve date -- strip any time component, default to today (IST)
     const date = safeDate(req.query.date);
 
-    // Fetch slots for the pump on that date
-    const { data: rawSlots, error: slotsErr } = await supabase
-      .from('slots')
-      .select('id, start_time, end_time, capacity, booked_count, is_deactivated, deactivation_reason, slot_date')
-      .eq('pump_id', pump.id)
-      .eq('slot_date', date)
-      .order('start_time', { ascending: true });
-
-    if (slotsErr) throw slotsErr;
-
-    // Only show slots that fall within the pump's current operating hours --
-    // a slot generated before the owner narrowed their hours shouldn't keep
-    // cluttering the list (bookings on any such slot already block the hours
-    // change itself, see PATCH /pumps/:id, so nothing booked is hidden here).
-    const hoursStart = pump.working_hours_start || '00:00';
-    const hoursEnd = pump.working_hours_end || '23:59';
-    const slots = (rawSlots || []).filter((s) => {
-      const start = String(s.start_time).slice(0, 5);
-      const end = String(s.end_time).slice(0, 5);
-      return start >= hoursStart && end <= hoursEnd;
-    });
-
-    // Derive status — the slots table has no status column, so compute it
-    const now = new Date();
-    const enriched = (slots || []).map((slot) => {
-      const booked = slot.booked_count || 0;
-      const capacity = slot.capacity || 5;
-      let st;
-      if (slot.is_deactivated) st = 'deactivated';
-      else if (booked >= capacity) st = 'full';
-      else if (new Date(`${slot.slot_date}T${slot.start_time}`).getTime() < now.getTime()) st = 'expired';
-      else st = 'open';
-      return {
-        ...slot,
-        status: st,
-        booked_count: booked,
-        capacity,
-      };
-    });
-
-    return res.json({ slots: enriched });
+    // Same function the customer-facing list uses: slots are generated from the SAVED
+    // schedule if missing, filtered to the operating windows, status derived in IST.
+    const result = await getSlotsForDate({ store: slotStore, pump, date });
+    return res.json({ slots: result.slots, schedule: result.schedule, date });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // A real failure is reported as one (never as an empty "no slots" list).
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message, code: err.code || 'SLOT_LOAD_FAILED' });
+  }
+});
+
+// POST /api/admin/slots/regenerate -- rebuild upcoming slots from the saved hours (bookings are kept).
+router.post('/slots/regenerate', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { data: pump, error } = await supabase
+      .from('pumps')
+      .select('id, working_hours_start, working_hours_end, vehicles_per_slot')
+      .eq('owner_id', req.user.sub)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!pump) return res.status(404).json({ error: 'No pump found for this account.' });
+    const result = await applyScheduleChange({ store: slotStore, pump, before: null });
+    return res.json(result);
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message, code: err.code });
   }
 });
 

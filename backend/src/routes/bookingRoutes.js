@@ -2,6 +2,9 @@ const express = require('express');
 const crypto = require('crypto');
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+const { trust } = require('../services/trustInstance');
+const { slotAllowedByHours } = require('../services/slotGenerator');
+const { slotEndInstant } = require('../services/trustScoreService');
 
 const router = express.Router();
 
@@ -51,6 +54,20 @@ router.post('/', authenticate, async (req, res) => {
 
     if ((slot.booked_count || 0) >= (slot.capacity || 0)) {
       return res.status(400).json({ error: 'Slot is full' });
+    }
+
+    // Bookings must fall inside the pump's CURRENT saved operating hours.
+    const { data: pumpHours, error: hoursErr } = await supabase
+      .from('pumps')
+      .select('id, working_hours_start, working_hours_end')
+      .eq('id', slot.pump_id)
+      .maybeSingle();
+    if (hoursErr) throw hoursErr;
+    if (!pumpHours || String(slot.pump_id) !== String(pump_id)) {
+      return res.status(400).json({ error: 'Slot does not belong to this pump', code: 'SLOT_PUMP_MISMATCH' });
+    }
+    if (!slotAllowedByHours(pumpHours, slot)) {
+      return res.status(400).json({ error: 'This slot is outside the pump operating hours', code: 'OUTSIDE_HOURS' });
     }
 
     const payload = {
@@ -254,11 +271,14 @@ router.post('/confirm', authenticate, async (req, res) => {
   }
 });
 
+// Customer cancellation. Only pending/confirmed bookings can be cancelled; the
+// status flip is a conditional update so concurrent requests cannot both win,
+// and the trust penalty is keyed on the booking so it is applied at most once.
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { data: booking, error: bookingErr } = await supabase
       .from('bookings')
-      .select('id, status, slot_id')
+      .select('id, user_id, status, slot_id, slot_date, slot_start, slot_end')
       .eq('id', req.params.id)
       .eq('user_id', req.user.sub)
       .maybeSingle();
@@ -266,6 +286,15 @@ router.delete('/:id', authenticate, async (req, res) => {
     if (bookingErr) throw bookingErr;
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (booking.status === 'cancelled') return res.status(400).json({ error: 'Already cancelled' });
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(400).json({ error: `A ${booking.status} booking cannot be cancelled`, code: 'NOT_CANCELLABLE' });
+    }
+    if (booking.status === 'confirmed') {
+      const end = slotEndInstant(booking);
+      if (end && new Date() > end) {
+        return res.status(400).json({ error: 'This slot has already ended and can no longer be cancelled', code: 'SLOT_PASSED' });
+      }
+    }
 
     const updatePayload = {
       status: 'cancelled',
@@ -273,23 +302,21 @@ router.delete('/:id', authenticate, async (req, res) => {
       refund_amount: Number(req.body?.refund || 0),
     };
 
-    let updated = await supabase
-      .from('bookings')
-      .update(updatePayload)
-      .eq('id', booking.id)
-      .select('*')
-      .single();
-
-    if (updated.error && /column .*cancellation_reason|column .*refund_amount/i.test(updated.error.message || '')) {
-      updated = await supabase
+    const run = (payload) =>
+      supabase
         .from('bookings')
-        .update({ status: 'cancelled' })
+        .update(payload)
         .eq('id', booking.id)
+        .in('status', ['pending', 'confirmed'])
         .select('*')
-        .single();
-    }
+        .maybeSingle();
 
+    let updated = await run(updatePayload);
+    if (updated.error && /column .*cancellation_reason|column .*refund_amount/i.test(updated.error.message || '')) {
+      updated = await run({ status: 'cancelled' });
+    }
     if (updated.error) throw updated.error;
+    if (!updated.data) return res.status(409).json({ error: 'Booking changed, please refresh', code: 'CONFLICT' });
 
     const { data: slot } = await supabase
       .from('slots')
@@ -304,7 +331,21 @@ router.delete('/:id', authenticate, async (req, res) => {
         .eq('id', booking.slot_id);
     }
 
-    return res.json(updated.data);
+    // The cancellation itself must never fail because scoring did.
+    let trustInfo = null;
+    try {
+      const r = await trust.recordUserCancellation({ booking, previousStatus: booking.status });
+      trustInfo = {
+        delta: r.event ? r.event.applied_delta : 0,
+        score: r.score,
+        tier: r.tier,
+        hours_until_slot: r.hoursUntilSlot,
+      };
+    } catch (trustErr) {
+      console.error('[Trust] cancellation scoring failed for booking', booking.id, trustErr.message);
+    }
+
+    return res.json({ ...updated.data, trust: trustInfo });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -419,6 +460,82 @@ router.patch('/:id/reject', authenticate, async (req, res) => {
   }
 });
 
+// ─── POST /api/bookings/:id/no-show ───────────────────────────
+// Pump operator confirms the customer never showed up. Allowed only for a
+// confirmed booking, after slot start + grace period. This is the only path
+// that applies the no-show penalty.
+router.post('/:id/no-show', authenticate, async (req, res) => {
+  try {
+    const role = await getUserRole(req.user.sub);
+    if (!['pump_owner', 'admin'].includes(role)) {
+      return res.status(403).json({ error: 'Pump operator access required' });
+    }
+
+    const { data: booking, error: bErr } = await supabase
+      .from('bookings')
+      .select('id, user_id, pump_id, status, slot_date, slot_start, slot_end')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (bErr) throw bErr;
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    const { data: pump, error: pErr } = await supabase
+      .from('pumps')
+      .select('owner_id')
+      .eq('id', booking.pump_id)
+      .single();
+    if (pErr) throw pErr;
+    if (pump.owner_id !== req.user.sub) {
+      return res.status(403).json({ error: 'You do not own this pump' });
+    }
+
+    const elig = trust.noShowEligibility(booking);
+    if (!elig.ok) {
+      return res.status(elig.code === 'GRACE_PERIOD' ? 409 : 400).json({
+        error: elig.message,
+        code: elig.code,
+        eligible_at: elig.eligibleAt || null,
+      });
+    }
+
+    // Win the race: only one request can move confirmed -> no_show. If the
+    // booking is already no_show we fall through so a retry can finish a
+    // ledger write that failed the first time (the ledger key is idempotent).
+    if (booking.status === 'confirmed') {
+      const { data: moved, error: mErr } = await supabase
+        .from('bookings')
+        .update({ status: 'no_show' })
+        .eq('id', booking.id)
+        .eq('status', 'confirmed')
+        .select('id')
+        .maybeSingle();
+      if (mErr) throw mErr;
+      if (!moved) return res.status(409).json({ error: 'Booking changed, please refresh', code: 'CONFLICT' });
+    }
+
+    let result;
+    try {
+      result = await trust.recordVerifiedNoShow({ booking, operatorId: req.user.sub });
+    } catch (trustErr) {
+      if (booking.status === 'confirmed') {
+        await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id).eq('status', 'no_show');
+      }
+      throw trustErr;
+    }
+
+    return res.json({
+      success: true,
+      booking_id: booking.id,
+      status: 'no_show',
+      penalty_applied: !!result.applied,
+      already_recorded: !!result.duplicate,
+      customer_score: result.score,
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message, code: err.code });
+  }
+});
+
 router.post('/checkin-by-admin', authenticate, async (req, res) => {
   try {
     const role = await getUserRole(req.user.sub);
@@ -468,7 +585,7 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
         code: 'PENDING_APPROVAL',
       });
     }
-    if (booking.status === 'rejected' || booking.status === 'cancelled') {
+    if (['rejected', 'cancelled', 'no_show'].includes(booking.status)) {
       return res.status(400).json({
         error: `This booking was ${booking.status} and can't be checked in.`,
         code: 'NOT_ACTIVE',
@@ -527,10 +644,8 @@ router.post('/checkin-by-admin', authenticate, async (req, res) => {
       .eq('id', booking.user_id)
       .maybeSingle();
 
-    await supabase
-      .from('users')
-      .update({ trust_score: Math.min(Number(user?.trust_score || 0) + 2, 100) })
-      .eq('id', booking.user_id);
+    // Trust score is not changed by completing a booking (completed = 0).
+
 
     return res.json({
       success: true,

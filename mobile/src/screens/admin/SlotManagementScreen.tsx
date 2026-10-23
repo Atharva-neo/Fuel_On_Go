@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -14,6 +15,8 @@ import {
 import api from '../../config/api';
 import { AlertIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme, type Theme } from '../../theme';
+import { istDate } from '../../utils/schedule';
 
 const DATES = [
   { label: 'Today', value: 0 },
@@ -21,10 +24,9 @@ const DATES = [
   { label: 'Day After', value: 2 },
 ];
 
+// Dates are India Standard Time, like the server (a UTC date is wrong for ~5.5 h every day).
 function getDateString(offset: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().split('T')[0];
+  return istDate(offset);
 }
 
 function formatTime(isoString: string) {
@@ -69,10 +71,13 @@ const REASON_CHIPS = [
 ];
 
 export default function SlotManagementScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [selectedDay, setSelectedDay] = useState(0);
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<{ open: string; close: string; overnight: boolean } | null>(null);
   const [deactivateModal, setDeactivateModal] = useState<any>(null);
   const [reason, setReason] = useState('');
   const [resumeTime, setResumeTime] = useState('');
@@ -88,6 +93,7 @@ export default function SlotManagementScreen() {
       const date = getDateString(selectedDay);
       const res = await api.get(`/admin/slots?date=${date}`);
       setSlots(res.data.slots || res.data || []);
+      setSchedule(res.data.schedule || null);
     } catch (err: any) {
       const msg = err?.response?.data?.error || 'Failed to load slots';
       setError(msg);
@@ -99,6 +105,14 @@ export default function SlotManagementScreen() {
   useEffect(() => {
     fetchSlots();
   }, [selectedDay]);
+
+  // Coming back from Edit Pump (new hours saved) must show the regenerated slots, not a stale list.
+  useFocusEffect(
+    useCallback(() => {
+      fetchSlots();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDay])
+  );
 
   const handleToggle = (slot: any) => {
     if (slot.status === 'open') {
@@ -216,15 +230,15 @@ export default function SlotManagementScreen() {
               {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
             </Text>
             {booked === 0 ? (
-              <MaterialCommunityIcons name="pencil-outline" size={16} color="#9CA3AF" />
+              <MaterialCommunityIcons name="pencil-outline" size={16} color={t.colors.textMuted} />
             ) : null}
           </TouchableOpacity>
           <Switch
             value={isActive}
             onValueChange={() => handleToggle(slot)}
-            trackColor={{ false: '#374151', true: '#00C896' }}
-            thumbColor={isActive ? '#ffffff' : '#9CA3AF'}
-            ios_backgroundColor="#374151"
+            trackColor={{ false: t.colors.textSecondary, true: t.colors.brandText }}
+            thumbColor={isActive ? t.colors.text : t.colors.textMuted}
+            ios_backgroundColor={t.colors.textSecondary}
           />
         </View>
 
@@ -236,7 +250,7 @@ export default function SlotManagementScreen() {
                 styles.progressFill,
                 {
                   width: `${cap > 0 ? Math.min((booked / cap) * 100, 100) : 0}%`,
-                  backgroundColor: isFull ? '#EF4444' : booked > 0 ? '#F59E0B' : '#00C896',
+                  backgroundColor: isFull ? t.colors.danger : booked > 0 ? t.colors.warning : t.colors.brand,
                 },
               ]}
             />
@@ -266,7 +280,7 @@ export default function SlotManagementScreen() {
         {slot.status === 'deactivated' && slot.deactivation_reason ? (
           <View style={styles.reasonBox}>
             <View style={styles.reasonRow}>
-              <AlertIcon size={12} color="#F59E0B" />
+              <AlertIcon size={12} color={t.colors.warningText} />
               <Text style={styles.reasonText}>{slot.deactivation_reason}</Text>
             </View>
             {slot.resume_time ? (
@@ -305,10 +319,17 @@ export default function SlotManagementScreen() {
         ))}
       </View>
 
+      {schedule ? (
+        <Text style={styles.scheduleHint}>
+          Operating hours {schedule.open} - {schedule.close}
+          {schedule.overnight ? ' (overnight)' : ''}
+        </Text>
+      ) : null}
+
       {/* Content */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#00C896" />
+          <ActivityIndicator size="large" color={t.colors.brandText} />
           <Text style={styles.loadingText}>Loading slots...</Text>
         </View>
       ) : error ? (
@@ -322,8 +343,13 @@ export default function SlotManagementScreen() {
         <View style={styles.center}>
           <Text style={styles.emptyText}>No slots for this date</Text>
           <Text style={styles.emptySubtext}>
-            Slots are generated automatically for active pumps
+            {schedule
+              ? `Your saved hours (${schedule.open} - ${schedule.close}) leave no bookable slot on this day.`
+              : 'Slots are generated automatically from your saved operating hours.'}
           </Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchSlots}>
+            <Text style={styles.retryText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -379,7 +405,7 @@ export default function SlotManagementScreen() {
             <TextInput
               style={styles.reasonInput}
               placeholder="e.g. CNG exhausted, truck arrives at 2 PM..."
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={t.colors.placeholder}
               value={reason}
               onChangeText={setReason}
               multiline
@@ -390,7 +416,7 @@ export default function SlotManagementScreen() {
             <TextInput
               style={styles.resumeInput}
               placeholder="e.g. 3:30 PM"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={t.colors.placeholder}
               value={resumeTime}
               onChangeText={setResumeTime}
             />
@@ -408,7 +434,7 @@ export default function SlotManagementScreen() {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator color="white" size="small" />
+                  <ActivityIndicator color={t.colors.onDanger} size="small" />
                 ) : (
                   <Text style={styles.confirmBtnText}>Confirm</Text>
                 )}
@@ -466,7 +492,7 @@ export default function SlotManagementScreen() {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator color="white" size="small" />
+                  <ActivityIndicator color={t.colors.onDanger} size="small" />
                 ) : (
                   <Text style={styles.confirmBtnText}>Save</Text>
                 )}
@@ -479,21 +505,21 @@ export default function SlotManagementScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
   },
   header: {
     paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.colors.text,
   },
   dateTabs: {
     flexDirection: 'row',
@@ -505,35 +531,35 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     alignItems: 'center',
   },
   dateTabActive: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
   },
   dateTabText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   dateTabTextActive: {
-    color: '#FFFFFF',
+    color: t.colors.text,
   },
   list: { flex: 1 },
   listContent: {
     padding: 16,
   },
   slotCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
   },
   slotCardInactive: {
     opacity: 0.75,
-    borderColor: '#F59E0B',
+    borderColor: t.colors.warning,
   },
   slotHeader: {
     flexDirection: 'row',
@@ -549,7 +575,7 @@ const styles = StyleSheet.create({
   slotTime: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.colors.text,
   },
   progressRow: {
     flexDirection: 'row',
@@ -560,7 +586,7 @@ const styles = StyleSheet.create({
   progressBg: {
     flex: 1,
     height: 6,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -569,7 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   progressText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 12,
     minWidth: 70,
   },
@@ -579,7 +605,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   capacityLabel: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 13,
     flex: 1,
   },
@@ -587,18 +613,18 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepBtnText: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 22,
   },
   capacityNum: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 16,
     fontWeight: '700',
     minWidth: 24,
@@ -607,10 +633,10 @@ const styles = StyleSheet.create({
   reasonBox: {
     marginTop: 12,
     padding: 10,
-    backgroundColor: 'rgba(245,158,11,0.1)',
+    backgroundColor: t.colors.warningTint,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
+    borderColor: t.colors.warning,
   },
   reasonRow: {
     flexDirection: 'row',
@@ -619,12 +645,12 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     flex: 1,
-    color: '#F59E0B',
+    color: t.colors.warningText,
     fontSize: 12,
     fontWeight: '500',
   },
   resumeText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 11,
     marginTop: 4,
   },
@@ -635,72 +661,79 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   loadingText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     marginTop: 12,
     fontSize: 14,
   },
   errorText: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryBtn: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
   },
+  scheduleHint: {
+    color: t.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 20,
+    paddingBottom: 6,
+  },
   retryText: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 14,
   },
   emptyText: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtext: {
-    color: '#6B7280',
+    color: t.colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
   },
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: t.colors.scrim,
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
   },
   modalTitle: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 4,
   },
   modalSlotTime: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontSize: 14,
     marginBottom: 20,
   },
   modalLabel: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 16,
   },
   modalHint: {
-    color: '#6B7280',
+    color: t.colors.textSecondary,
     fontSize: 12,
     lineHeight: 16,
     marginBottom: 4,
@@ -713,42 +746,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#4B5563',
+    borderColor: t.colors.border,
   },
   chipSelected: {
-    backgroundColor: 'rgba(0,200,150,0.15)',
-    borderColor: '#00C896',
+    backgroundColor: t.colors.brandTint,
+    borderColor: t.colors.brand,
   },
   chipText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: '#00C896',
+    color: t.colors.brandText,
   },
   reasonInput: {
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.inputBg,
     borderRadius: 10,
     padding: 12,
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
     minHeight: 80,
     textAlignVertical: 'top',
   },
   resumeInput: {
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.inputBg,
     borderRadius: 10,
     padding: 12,
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
     height: 48,
   },
   modalButtons: {
@@ -760,11 +793,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     alignItems: 'center',
   },
   cancelBtnText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontWeight: '700',
     fontSize: 15,
   },
@@ -772,11 +805,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#EF4444',
+    backgroundColor: t.colors.danger,
     alignItems: 'center',
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: t.colors.onDanger,
     fontWeight: '700',
     fontSize: 15,
   },
@@ -791,30 +824,30 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timeStepBtnText: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 13,
     fontWeight: '700',
   },
   timeDisplay: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 18,
     fontWeight: '800',
     minWidth: 64,
     textAlign: 'center',
   },
   timeDisplayReadonly: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontSize: 18,
     fontWeight: '700',
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.inputBg,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
     paddingVertical: 10,
     textAlign: 'center',
   },
@@ -822,7 +855,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     alignItems: 'center',
   },
 });

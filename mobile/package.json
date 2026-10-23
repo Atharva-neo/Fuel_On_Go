@@ -7,7 +7,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:sheet": "node --no-warnings scripts/bottomSheetMath.test.mjs"
+    "test:sheet": "node --no-warnings scripts/bottomSheetMath.test.mjs",
+    "test:pumploc": "node --no-warnings --test scripts/pumpLocation.test.mjs",
+    "test:theme": "node --no-warnings --test scripts/theme.test.mjs",
+    "test:map": "node --no-warnings --test scripts/map.test.mjs",
+    "test:colors": "node --no-warnings --test scripts/noHardcodedColors.test.mjs",
+    "test:ratings": "node --no-warnings --test scripts/ratings.test.mjs",
+    "test:schedule": "node --no-warnings --test scripts/schedule.test.mjs",
+    "test:location": "node --no-warnings --test scripts/location.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

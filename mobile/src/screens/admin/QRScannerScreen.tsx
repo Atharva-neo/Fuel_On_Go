@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Text,
   View,
@@ -14,6 +14,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon, CheckIcon, AlertIcon, XIcon } from '../../components/ui/Icons';
+import { useTheme, type Theme } from '../../theme';
+
 
 function formatSlotTime(raw: string | undefined) {
   if (!raw) return '-';
@@ -32,6 +34,8 @@ const { width } = Dimensions.get('window');
 const SCAN_AREA_SIZE = width * 0.7;
 
 export default function QRScannerScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -120,7 +124,7 @@ export default function QRScannerScreen({ navigation }: any) {
       <View style={styles.overlay}>
         <View style={styles.overlayTop}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeftIcon size={24} color="#FFFFFF" />
+            <ArrowLeftIcon size={24} color={t.colors.onCamera} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Scan Customer QR</Text>
         </View>
@@ -141,13 +145,13 @@ export default function QRScannerScreen({ navigation }: any) {
           <View style={styles.modalCard}>
             {loading ? (
               <View style={styles.modalLoader}>
-                <ActivityIndicator size="large" color="#00C896" />
+                <ActivityIndicator size="large" color={t.colors.brandText} />
                 <Text style={styles.modalLoaderText}>Processing...</Text>
               </View>
             ) : result?.type === 'success' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <CheckIcon size={24} color="#00C896" />
+                  <CheckIcon size={24} color={t.colors.brandText} />
                   <Text style={styles.modalTitle}>Check-in Successful!</Text>
                 </View>
 
@@ -177,7 +181,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result?.type === 'wrong_pump' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <AlertIcon size={24} color="#F59E0B" />
+                  <AlertIcon size={24} color={t.colors.warningText} />
                   <Text style={styles.modalTitle}>Wrong Pump</Text>
                 </View>
                 <View style={styles.modalBody}>
@@ -194,7 +198,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result?.type === 'already_scanned' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <AlertIcon size={24} color="#F59E0B" />
+                  <AlertIcon size={24} color={t.colors.warningText} />
                   <Text style={styles.modalTitle}>Already Checked In</Text>
                 </View>
                 <View style={styles.modalBody}>
@@ -209,7 +213,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result?.type === 'pending_approval' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <AlertIcon size={24} color="#F59E0B" />
+                  <AlertIcon size={24} color={t.colors.warningText} />
                   <Text style={styles.modalTitle}>Not Yet Approved</Text>
                 </View>
                 <View style={styles.modalBody}>
@@ -224,7 +228,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result?.type === 'not_active' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <XIcon size={24} color="#EF4444" />
+                  <XIcon size={24} color={t.colors.dangerText} />
                   <Text style={styles.modalTitle}>Booking Not Active</Text>
                 </View>
                 <View style={styles.modalBody}>
@@ -239,7 +243,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result?.type === 'outside_window' ? (
               <>
                 <View style={styles.modalHeader}>
-                  <AlertIcon size={24} color="#F59E0B" />
+                  <AlertIcon size={24} color={t.colors.warningText} />
                   <Text style={styles.modalTitle}>
                     {result.data?.code === 'TOO_EARLY' ? 'Too Early' : 'Slot Expired'}
                   </Text>
@@ -258,7 +262,7 @@ export default function QRScannerScreen({ navigation }: any) {
             ) : result ? (
               <>
                 <View style={styles.modalHeader}>
-                  <XIcon size={24} color="#EF4444" />
+                  <XIcon size={24} color={t.colors.dangerText} />
                   <Text style={styles.modalTitle}>Invalid QR Code</Text>
                 </View>
                 <View style={styles.modalBody}>
@@ -278,33 +282,33 @@ export default function QRScannerScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.bg,
   },
   containerCenter: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionText: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
   },
   permissionBtn: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 12,
   },
   permissionBtnText: {
-    color: '#0A0A0A',
+    color: t.colors.onBrand,
     fontWeight: '800',
     fontSize: 16,
   },
@@ -312,7 +316,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlayTop: {
-    backgroundColor: 'rgba(10, 10, 10, 0.8)',
+    backgroundColor: t.colors.cameraScrim,
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 24,
@@ -324,13 +328,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: t.colors.cameraControl,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: -8,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: t.colors.onCamera,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -345,11 +349,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginHorizontal: 'auto',
     borderWidth: 2,
-    borderColor: '#00C896',
+    borderColor: t.colors.brand,
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: 'transparent',
-    shadowColor: '#00C896',
+    shadowColor: t.colors.brand,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -358,31 +362,31 @@ const styles = StyleSheet.create({
   scanLine: {
     width: '100%',
     height: 2,
-    backgroundColor: '#00C896',
-    shadowColor: '#00C896',
+    backgroundColor: t.colors.brand,
+    shadowColor: t.colors.brand,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 10,
     elevation: 5,
   },
   overlayBottom: {
-    backgroundColor: 'rgba(10, 10, 10, 0.8)',
+    backgroundColor: t.colors.cameraScrim,
     padding: 40,
     alignItems: 'center',
   },
   hintText: {
-    color: '#FFFFFF',
+    color: t.colors.onCamera,
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: t.colors.scrim,
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -394,7 +398,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   modalLoaderText: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -405,10 +409,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: t.colors.border,
   },
   modalTitle: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '900',
     fontSize: 22,
     letterSpacing: -0.5,
@@ -420,53 +424,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.surfaceAlt,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: t.colors.border,
   },
   infoLabel: {
-    color: '#71717A',
+    color: t.colors.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },
   infoValue: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 15,
   },
   errorMessage: {
-    color: '#3F3F46',
+    color: t.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 8,
   },
   confirmBtn: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: t.colors.inverse,
     borderRadius: 16,
     alignItems: 'center',
     paddingVertical: 18,
     marginTop: 8,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: t.colors.onInverse,
     fontWeight: '800',
     fontSize: 16,
   },
   cancelBtn: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: t.colors.surfaceAlt,
     borderRadius: 16,
     alignItems: 'center',
     paddingVertical: 18,
   },
   cancelBtnText: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 16,
   },

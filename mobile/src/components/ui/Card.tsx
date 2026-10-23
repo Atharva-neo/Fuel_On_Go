@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { colors, radius, shadows } from '../../theme/stitch';
+import { radius, shadows } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 export type CardVariant = 'default' | 'elevated' | 'outlined';
 export type CardPadding = 'sm' | 'md' | 'lg';
@@ -15,6 +16,8 @@ interface CardProps {
 const paddingMap = { sm: 10, md: 16, lg: 24 };
 
 export default function Card({ children, variant = 'default', padding = 'md', style }: CardProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return (
     <View
       style={[
@@ -30,15 +33,15 @@ export default function Card({ children, variant = 'default', padding = 'md', st
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   base: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: t.colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
   },
   outlined: {
-    backgroundColor: colors.transparent,
-    borderColor: colors.border,
+    backgroundColor: 'transparent',
+    borderColor: t.colors.border,
   },
 });

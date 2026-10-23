@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { pumpService } from '../../services/pump.service';
 import { adminService } from '../../services/admin.service';
+import { useTheme, type Theme } from '../../theme';
+
 
 function isoDate(offset = 0) {
   const d = new Date();
@@ -19,6 +21,8 @@ function shiftDate(isoStr: string, deltaDays: number) {
 }
 
 export default function AdminBookingsScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [date, setDate] = useState(isoDate(0));
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +81,39 @@ export default function AdminBookingsScreen({ navigation }: any) {
     ]);
   };
 
+  // Mirrors the server rule (slot start + 15 min grace); the server is the authority.
+  const canMarkNoShow = (b: any) => {
+    if (b.status !== 'confirmed' || !b.slot_date || !b.slot_start) return false;
+    const hms = String(b.slot_start).length <= 5 ? `${b.slot_start}:00` : String(b.slot_start).slice(0, 8);
+    const start = new Date(`${String(b.slot_date).slice(0, 10)}T${hms}+05:30`).getTime();
+    return Number.isFinite(start) && Date.now() >= start + 15 * 60000;
+  };
+
+  const handleNoShow = (bookingId: string) => {
+    Alert.alert(
+      'Mark as no-show?',
+      'Confirm the customer never arrived. This lowers their trust score and cannot be undone by you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm no-show',
+          style: 'destructive',
+          onPress: async () => {
+            setActingOn(bookingId);
+            try {
+              await adminService.markNoShow(bookingId);
+              load();
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.error || 'Could not mark no-show.');
+            } finally {
+              setActingOn(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -118,9 +155,9 @@ export default function AdminBookingsScreen({ navigation }: any) {
             disabled={exporting}
           >
             {exporting ? (
-              <ActivityIndicator size="small" color="#00C896" />
+              <ActivityIndicator size="small" color={t.colors.brandText} />
             ) : (
-              <MaterialCommunityIcons name="download-outline" size={20} color="#00C896" />
+              <MaterialCommunityIcons name="download-outline" size={20} color={t.colors.brandText} />
             )}
           </TouchableOpacity>
         </View>
@@ -151,7 +188,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#00C896" style={{ marginTop: 24 }} />
+        <ActivityIndicator color={t.colors.brandText} style={{ marginTop: 24 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
           {bookings.map((booking) => {
@@ -190,12 +227,26 @@ export default function AdminBookingsScreen({ navigation }: any) {
                       onPress={() => handleApprove(booking.id)}
                     >
                       {actingOn === booking.id ? (
-                        <ActivityIndicator size="small" color="#0A0A0A" />
+                        <ActivityIndicator size="small" color={t.colors.onBrand} />
                       ) : (
                         <Text style={styles.approveBtnText}>Approve</Text>
                       )}
                     </TouchableOpacity>
                   </View>
+                ) : null}
+
+                {canMarkNoShow(booking) ? (
+                  <TouchableOpacity
+                    style={styles.noShowBtn}
+                    disabled={actingOn === booking.id}
+                    onPress={() => handleNoShow(booking.id)}
+                  >
+                    {actingOn === booking.id ? (
+                      <ActivityIndicator size="small" color={t.colors.dangerText} />
+                    ) : (
+                      <Text style={styles.rejectBtnText}>Mark no-show</Text>
+                    )}
+                  </TouchableOpacity>
                 ) : null}
               </TouchableOpacity>
             );
@@ -207,16 +258,16 @@ export default function AdminBookingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
   },
   header: {
     paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
   },
   titleRow: {
     flexDirection: 'row',
@@ -231,18 +282,18 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   title: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 24,
   },
   pendingBadge: {
-    backgroundColor: 'rgba(245,158,11,0.15)',
+    backgroundColor: t.colors.warningTint,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   pendingBadgeText: {
-    color: '#F59E0B',
+    color: t.colors.warningText,
     fontWeight: '700',
     fontSize: 12,
   },
@@ -250,7 +301,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,200,150,0.12)',
+    backgroundColor: t.colors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -264,64 +315,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   dateAction: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontWeight: '700',
     fontSize: 13,
   },
   date: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     fontWeight: '700',
     fontSize: 13,
   },
   dateToday: {
-    color: '#FFFFFF',
+    color: t.colors.text,
   },
   card: {
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
   },
   cardPending: {
-    borderColor: 'rgba(245,158,11,0.4)',
+    borderColor: t.colors.warning,
   },
   customer: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 15,
   },
   meta: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     marginTop: 4,
     fontSize: 13,
   },
   badge: {
     marginTop: 10,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,200,150,0.15)',
+    backgroundColor: t.colors.brandTint,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgePending: {
-    backgroundColor: 'rgba(245,158,11,0.15)',
+    backgroundColor: t.colors.warningTint,
   },
   badgeNegative: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: t.colors.dangerTint,
   },
   badgeText: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontWeight: '700',
     textTransform: 'capitalize',
     fontSize: 12,
   },
   badgeTextPending: {
-    color: '#F59E0B',
+    color: t.colors.warningText,
   },
   badgeTextNegative: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
   },
   actionRow: {
     flexDirection: 'row',
@@ -333,30 +384,39 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
-    backgroundColor: 'rgba(239,68,68,0.12)',
+    backgroundColor: t.colors.dangerTint,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
+    borderColor: t.colors.danger,
   },
   rejectBtnText: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
     fontWeight: '700',
     fontSize: 13,
+  },
+  noShowBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: t.colors.dangerTint,
+    borderWidth: 1,
+    borderColor: t.colors.danger,
   },
   approveBtn: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
   },
   approveBtnText: {
-    color: '#0A0A0A',
+    color: t.colors.onBrand,
     fontWeight: '700',
     fontSize: 13,
   },
   empty: {
     textAlign: 'center',
-    color: '#6B7280',
+    color: t.colors.textSecondary,
     marginTop: 18,
   },
 });

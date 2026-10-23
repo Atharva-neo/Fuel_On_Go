@@ -1,3 +1,4 @@
+const { defaultPolicy } = require('../config/trustPolicy');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -104,7 +105,7 @@ async function upsertUserProfile(profile, id) {
     role: profile.role || 'user',
     vehicle_number: profile.vehicle_number || '',
     vehicle_type: profile.vehicle_type || 'Car',
-    trust_score: profile.trust_score ?? 100,
+    trust_score: profile.trust_score ?? defaultPolicy.defaultScore,
     no_show_count: profile.no_show_count ?? 0,
     is_blocked: profile.is_blocked ?? false,
     email: profile.email || null,
@@ -121,7 +122,7 @@ async function upsertUserProfile(profile, id) {
       role: profile.role || 'user',
       vehicle_number: profile.vehicle_number || '',
       vehicle_type: profile.vehicle_type || 'Car',
-      trust_score: profile.trust_score ?? 100,
+      trust_score: profile.trust_score ?? defaultPolicy.defaultScore,
       no_show_count: profile.no_show_count ?? 0,
       is_blocked: profile.is_blocked ?? false,
     };
@@ -248,7 +249,7 @@ router.post('/register', async (req, res) => {
           vehicle_number: vehicleNumber,
           vehicle_type: vehicleType,
           email,
-          trust_score: 100,
+          trust_score: defaultPolicy.defaultScore,
           no_show_count: 0,
           is_blocked: false,
         },
@@ -326,7 +327,7 @@ router.post('/register-admin', async (req, res) => {
           vehicle_number: '',
           vehicle_type: 'Other',
           email,
-          trust_score: 100,
+          trust_score: defaultPolicy.defaultScore,
           no_show_count: 0,
           is_blocked: false,
         },

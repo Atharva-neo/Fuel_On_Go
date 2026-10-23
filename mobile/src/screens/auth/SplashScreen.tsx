@@ -1,15 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { colors, fontSize } from '../../theme/stitch';
+import { fontSize } from '../../theme/stitch';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthStack';
 import { useAuthStore } from '../../store/authStore';
 import { useLocationStore } from '../../store/locationStore';
+import Logo from '../../components/Logo';
+import { useTheme, type Theme } from '../../theme';
 
 type SplashNav = NativeStackNavigationProp<AuthStackParamList, 'Splash'>;
 
 export default function SplashScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const navigation = useNavigation<SplashNav>();
   const { isAuthenticated } = useAuthStore();
   const { isSet } = useLocationStore();
@@ -61,12 +65,9 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <Animated.Text
-        style={[styles.logo, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}
-      >
-        ⚡
-      </Animated.Text>
-      <Animated.Text style={[styles.name, { opacity: textOpacity }]}>Fuel on Go</Animated.Text>
+      <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
+        <Logo size={132} />
+      </Animated.View>
       <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
         Book CNG. Skip the queue.
       </Animated.Text>
@@ -74,10 +75,10 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: t.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -89,12 +90,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: fontSize.xxxl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     letterSpacing: -1,
   },
   tagline: {
     fontSize: fontSize.base,
-    color: colors.primary,
+    color: t.colors.brandText,
     fontWeight: '500',
   },
 });

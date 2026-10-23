@@ -1,30 +1,32 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fontSize, radius, spacing } from '../../theme/stitch';
+import { fontSize, radius, spacing } from '../../theme/stitch';
 import { MOCK_BOOKINGS, MOCK_PUMPS, type MockBooking } from '../../mock/data';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Chip from '../../components/ui/Chip';
+import { useTheme, type Theme } from '../../theme';
 
 type FilterKey = 'all' | 'confirmed' | 'arrived' | 'no_show';
 
-const BORDER: Record<string, string> = {
-  confirmed: colors.secondary,
-  arrived: colors.primary,
-  no_show: colors.danger,
-  cancelled: colors.border,
-};
-
 function BookingRow({ booking }: { booking: MockBooking }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
+  const BORDER: Record<string, string> = {
+    confirmed: t.colors.info,
+    arrived: t.colors.brand,
+    no_show: t.colors.danger,
+    cancelled: t.colors.border,
+  };
   const [expanded, setExpanded] = useState(false);
   return (
     <TouchableOpacity
       onPress={() => setExpanded((p) => !p)}
-      style={[styles.row, { borderLeftColor: BORDER[booking.status] ?? colors.border }]}
+      style={[styles.row, { borderLeftColor: BORDER[booking.status] ?? t.colors.border }]}
     >
       <View style={styles.rowTop}>
         <Text style={styles.rowId}>#{booking.id.slice(-8).toUpperCase()}</Text>
@@ -59,6 +61,8 @@ function BookingRow({ booking }: { booking: MockBooking }) {
 }
 
 export default function BookingHistoryScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [filter, setFilter] = useState<FilterKey>('all');
   const pump = MOCK_PUMPS[0];
 
@@ -128,34 +132,34 @@ export default function BookingHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+const createStyles = (t: Theme) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.colors.bg },
   header: { padding: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.textPrimary },
-  pumpName: { fontSize: fontSize.sm, color: colors.textSecondary },
+  title: { fontSize: fontSize.xxl, fontWeight: '800', color: t.colors.text },
+  pumpName: { fontSize: fontSize.sm, color: t.colors.textSecondary },
   filterScroll: { paddingHorizontal: spacing.md, marginBottom: spacing.sm, maxHeight: 48, flexGrow: 0 },
   list: { padding: spacing.md, paddingBottom: 48, gap: 10 },
   row: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: t.colors.surface,
     borderRadius: radius.md,
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
     padding: 14,
     gap: 5,
   },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowId: { fontSize: fontSize.sm, fontWeight: '800', color: colors.textPrimary, fontFamily: 'monospace' },
-  rowUser: { fontSize: fontSize.sm, color: colors.textSecondary },
-  rowSlot: { fontSize: fontSize.sm, color: colors.textSecondary },
-  rowPayment: { fontSize: fontSize.xs, color: colors.textMuted },
-  expandedSection: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8, paddingTop: 8, gap: 8 },
-  expandedLabel: { fontSize: fontSize.xs, color: colors.textMuted, fontFamily: 'monospace' },
+  rowId: { fontSize: fontSize.sm, fontWeight: '800', color: t.colors.text, fontFamily: 'monospace' },
+  rowUser: { fontSize: fontSize.sm, color: t.colors.textSecondary },
+  rowSlot: { fontSize: fontSize.sm, color: t.colors.textSecondary },
+  rowPayment: { fontSize: fontSize.xs, color: t.colors.textMuted },
+  expandedSection: { borderTopWidth: 1, borderTopColor: t.colors.border, marginTop: 8, paddingTop: 8, gap: 8 },
+  expandedLabel: { fontSize: fontSize.xs, color: t.colors.textMuted, fontFamily: 'monospace' },
   manualBtn: {
-    backgroundColor: colors.successBg, borderRadius: radius.md,
-    padding: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.primary,
+    backgroundColor: t.colors.successTint, borderRadius: radius.md,
+    padding: 10, alignItems: 'center', borderWidth: 1, borderColor: t.colors.brand,
   },
-  manualBtnText: { color: colors.primary, fontWeight: '700', fontSize: fontSize.sm },
+  manualBtnText: { color: t.colors.brandText, fontWeight: '700', fontSize: fontSize.sm },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { color: colors.textSecondary, fontSize: fontSize.base },
+  emptyText: { color: t.colors.textSecondary, fontSize: fontSize.base },
 });

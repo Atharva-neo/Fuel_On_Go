@@ -1,3 +1,7 @@
+const { parseCoords } = require('../utils/coords');
+const { slotStore } = require('../services/slotInstance');
+const { ensureUpcoming } = require('../services/slotGenerator');
+const { normalizeSchedule } = require('../services/slotSchedule');
 const express = require('express');
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
@@ -19,6 +23,28 @@ function haversineKm(lat1, lng1, lat2, lng2) {
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+
+// Real rating aggregates (from verified-visit ratings). A pump with no reviews
+// has rating_avg null / rating_count 0; the legacy pumps.rating default of 4.0
+// is never exposed. If migration 008 is not applied yet, aggregates are empty.
+async function attachRatings(pumps) {
+  const list = Array.isArray(pumps) ? pumps : [pumps];
+  const ids = list.filter(Boolean).map((p) => p.id);
+  let byId = new Map();
+  if (ids.length) {
+    const { data, error } = await supabase.from('pumps').select('id, rating_avg, rating_count').in('id', ids);
+    if (!error) byId = new Map((data || []).map((r) => [r.id, r]));
+  }
+  const out = list.map((p) => {
+    if (!p) return p;
+    const { rating: _legacyDefault, ...rest } = p;
+    const agg = byId.get(p.id);
+    const count = Number(agg?.rating_count || 0);
+    return { ...rest, rating_avg: count > 0 && agg?.rating_avg != null ? Number(agg.rating_avg) : null, rating_count: count };
+  });
+  return Array.isArray(pumps) ? out : out[0];
 }
 
 async function getUserRole(userId) {
@@ -99,7 +125,7 @@ router.get('/nearby', async (req, res) => {
   try {
     const { lat, lng, radius, north, south, east, west } = req.query;
     const nearby = await buildNearbyList({ lat, lng, radius, north, south, east, west });
-    return res.json(nearby);
+    return res.json(await attachRatings(nearby));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -109,7 +135,7 @@ router.get('/', async (req, res) => {
   try {
     const { lat, lng, radius, north, south, east, west } = req.query;
     const nearby = await buildNearbyList({ lat, lng, radius, north, south, east, west });
-    return res.json(nearby);
+    return res.json(await attachRatings(nearby));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -136,6 +162,17 @@ router.post('/create', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'name, license_number, address, city, district, lat, lng are required' });
     }
 
+    const schedule = normalizeSchedule(working_hours_start || '06:00', working_hours_end || '22:00');
+    if (!schedule.ok) return res.status(400).json({ error: schedule.message, code: schedule.code });
+    const cap = Number(vehicles_per_slot || 5);
+    if (!Number.isInteger(cap) || cap < 1 || cap > 200) {
+      return res.status(400).json({ error: 'Vehicles per slot must be a whole number from 1 to 200.', code: 'INVALID_CAPACITY' });
+    }
+    const coords = parseCoords(lat, lng);
+    if (!coords) {
+      return res.status(400).json({ error: 'A valid pump location (lat/lng) is required', code: 'INVALID_COORDINATES' });
+    }
+
     const payload = {
       owner_id: req.user.sub,
       name,
@@ -143,11 +180,11 @@ router.post('/create', authenticate, async (req, res) => {
       city,
       district,
       pin_code: pin_code || null,
-      lat: Number(lat),
-      lng: Number(lng),
-      working_hours_start: working_hours_start || '06:00',
-      working_hours_end: working_hours_end || '22:00',
-      vehicles_per_slot: Number(vehicles_per_slot || 5),
+      lat: coords.lat,
+      lng: coords.lng,
+      working_hours_start: schedule.open,
+      working_hours_end: schedule.close,
+      vehicles_per_slot: cap,
       cng_price_per_kg: Number(cng_price_per_kg || 89.5),
       is_active: true,
     };
@@ -168,14 +205,11 @@ router.post('/create', authenticate, async (req, res) => {
       .eq('id', req.user.sub)
       .eq('role', 'user');
 
-    for (let day = 0; day < 7; day += 1) {
-      const d = new Date();
-      d.setDate(d.getDate() + day);
-      const iso = d.toISOString().slice(0, 10);
-      await supabase.rpc('generate_daily_slots', {
-        p_pump_id: insert.data.id,
-        p_date: iso,
-      });
+    // Slots come from the saved schedule (shared generator; replaces the old SQL function).
+    try {
+      await ensureUpcoming({ store: slotStore, pump: insert.data });
+    } catch (syncErr) {
+      console.error('[Slots] initial generation failed:', syncErr.message);
     }
 
     return res.status(201).json(insert.data);
@@ -334,7 +368,7 @@ router.get('/:id', async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Pump not found' });
 
-    return res.json(data);
+    return res.json(await attachRatings(data));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

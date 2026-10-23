@@ -19,7 +19,9 @@ export interface Pump {
   supply_status?: 'available' | 'low' | 'interrupted';
   public_message?: string | null;
   is_active: boolean;
-  rating?: number;
+  /** Real average from verified-visit ratings; null/absent when the pump has no reviews. */
+  rating_avg?: number | null;
+  rating_count?: number;
   available_slots_today?: number;
   distance_km?: number;
 }
@@ -48,15 +50,16 @@ function toRegionParams(bbox?: LocationBbox | null) {
 
 export const pumpService = {
   async getNearby(params: {
-    lat: number;
-    lng: number;
+    lat?: number;
+    lng?: number;
     radius?: number;
     bbox?: LocationBbox | null;
+    signal?: AbortSignal;
   }): Promise<Pump[]> {
     const { data } = await api.get('/pumps/nearby', {
+      signal: params.signal,
       params: {
-        lat: params.lat,
-        lng: params.lng,
+        ...(params.lat != null && params.lng != null ? { lat: params.lat, lng: params.lng } : {}),
         radius: params.radius ?? 30000,
         ...toRegionParams(params.bbox),
       },

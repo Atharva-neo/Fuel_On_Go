@@ -1,23 +1,11 @@
 const express = require('express');
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+const { slotStore } = require('../services/slotInstance');
+const { getSlotsForDate } = require('../services/slotGenerator');
+const { istNow, SLOT_DURATION_MINUTES, formatClock, normalizeSchedule, withinWindows } = require('../services/slotSchedule');
 
 const router = express.Router();
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function slotStatus(slot) {
-  if (slot.is_deactivated) return 'deactivated';
-  if ((slot.booked_count || 0) >= (slot.capacity || 0)) return 'full';
-
-  const now = new Date();
-  const slotDateTime = new Date(`${slot.slot_date}T${slot.start_time}`);
-  if (slotDateTime.getTime() < now.getTime()) return 'expired';
-
-  return 'open';
-}
 
 async function requirePumpOwner(req) {
   const { data, error } = await supabase.from('users').select('role').eq('id', req.user.sub).single();
@@ -56,29 +44,21 @@ async function ensureOwnerCanManageSlot(userId, slotId) {
 
 router.get('/:pumpId', async (req, res) => {
   try {
-    const date = req.query.date || todayIso();
+    const date = String(req.query.date || istNow().date).slice(0, 10);
 
-    const { data, error } = await supabase
-      .from('slots')
-      .select('*')
-      .eq('pump_id', req.params.pumpId)
-      .eq('slot_date', date)
-      .order('start_time', { ascending: true });
+    const { data: pump, error: pumpErr } = await supabase
+      .from('pumps')
+      .select('id, is_active, working_hours_start, working_hours_end, vehicles_per_slot')
+      .eq('id', req.params.pumpId)
+      .maybeSingle();
+    if (pumpErr) throw pumpErr;
+    if (!pump) return res.status(404).json({ error: 'Pump not found' });
 
-    if (error) throw error;
-
-    const enriched = (data || []).map((slot) => {
-      const status = slotStatus(slot);
-      return {
-        ...slot,
-        status,
-        available: status === 'open' ? Math.max(0, slot.capacity - slot.booked_count) : 0,
-      };
-    });
-
-    return res.json(enriched);
+    // Identical to the owner's Manage Slots list: generated from the saved schedule, windows applied.
+    const result = await getSlotsForDate({ store: slotStore, pump, date });
+    return res.json(result.slots);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(err.status || 500).json({ error: err.message, code: err.code });
   }
 });
 
@@ -175,14 +155,14 @@ router.patch('/:slotId/time', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'start_time must be in HH:MM format' });
     }
 
-    // Every slot is a fixed 30-minute duration -- end_time is derived, not
-    // client-supplied, so slots can never be created with mismatched lengths.
+    // Slot length is the app-wide SLOT_DURATION_MINUTES; end_time is derived, never client-supplied.
     const [h, m] = startTime.split(':').map(Number);
-    const totalMinutes = h * 60 + m + 30;
-    if (totalMinutes >= 24 * 60) {
-      return res.status(400).json({ error: 'A 30-minute slot starting here would run past midnight' });
+    const startMin = h * 60 + m;
+    const endMin = startMin + SLOT_DURATION_MINUTES;
+    if (endMin > 24 * 60) {
+      return res.status(400).json({ error: 'A slot starting here would run past midnight' });
     }
-    const endTime = `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+    const endTime = formatClock(endMin);
 
     const { data: slot, error: slotErr } = await supabase
       .from('slots')
@@ -193,6 +173,17 @@ router.patch('/:slotId/time', authenticate, async (req, res) => {
 
     if (slot.booked_count > 0) {
       return res.status(400).json({ error: 'Cannot change timing for a slot that already has bookings' });
+    }
+
+    const { data: pumpHours, error: pumpHoursErr } = await supabase
+      .from('pumps')
+      .select('working_hours_start, working_hours_end')
+      .eq('id', slot.pump_id)
+      .single();
+    if (pumpHoursErr) throw pumpHoursErr;
+    const schedule = normalizeSchedule(pumpHours.working_hours_start, pumpHours.working_hours_end);
+    if (schedule.ok && !withinWindows(schedule, startMin, endMin)) {
+      return res.status(400).json({ error: `This time is outside the pump operating hours (${schedule.open}-${schedule.close})`, code: 'OUTSIDE_HOURS' });
     }
 
     const { data: siblingSlots, error: siblingErr } = await supabase
@@ -236,7 +227,7 @@ router.post('/bulk-deactivate', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'pump_id, from_time, to_time and reason are required' });
     }
 
-    const targetDate = date || todayIso();
+    const targetDate = date || istNow().date;
 
     const { data: pump, error: pumpErr } = await supabase
       .from('pumps')

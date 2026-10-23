@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthStack';
-import { colors, fontSize, radius, spacing } from '../../theme/stitch';
+import { fontSize, radius, spacing } from '../../theme/stitch';
 import { useAuthStore } from '../../store/authStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Logo from '../../components/Logo';
+import { useTheme, type Theme } from '../../theme';
 
 type LoginNav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 
 export default function LoginScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const navigation = useNavigation<LoginNav>();
   const { sendOtp } = useAuthStore();
   const [isOwnerMode, setIsOwnerMode] = useState(false);
@@ -185,8 +189,7 @@ export default function LoginScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>⚡</Text>
-            <Text style={styles.appName}>Fuel on Go</Text>
+            <Logo size={88} />
             <Text style={styles.tagline}>
               {isOwnerMode ? 'Pump Owner Login' : 'Book your CNG slot. Skip the queue.'}
             </Text>
@@ -247,7 +250,7 @@ export default function LoginScreen() {
                       onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, idx)}
                       keyboardType="number-pad"
                       maxLength={1}
-                      selectionColor={colors.primary}
+                      selectionColor={t.colors.brandText}
                     />
                   ))}
                 </Animated.View>
@@ -292,37 +295,37 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+const createStyles = (t: Theme) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.colors.bg },
   scroll: { flexGrow: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.xl },
   header: { alignItems: 'center', marginBottom: 32, paddingTop: spacing.xl },
   logo: { fontSize: 64, marginBottom: 8 },
   appName: {
     fontSize: fontSize.xxxl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     letterSpacing: -1,
     marginBottom: 4,
   },
-  tagline: { fontSize: fontSize.base, color: colors.primary, fontWeight: '500' },
+  tagline: { fontSize: fontSize.base, color: t.colors.brandText, fontWeight: '500' },
   devBanner: {
-    backgroundColor: '#fef7e0',
+    backgroundColor: t.colors.warningTint,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: t.colors.warning,
     borderRadius: radius.md,
     padding: 12,
     marginBottom: 16,
     alignItems: 'center',
   },
-  devBannerText: { color: colors.warning, fontWeight: '700', fontSize: fontSize.sm },
+  devBannerText: { color: t.colors.warningText, fontWeight: '700', fontSize: fontSize.sm },
   card: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: t.colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
     marginBottom: spacing.md,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -331,7 +334,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     marginBottom: 16,
   },
   otpRow: {
@@ -344,25 +347,25 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     borderRadius: radius.md,
-    backgroundColor: colors.bg,
+    backgroundColor: t.colors.bg,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
     textAlign: 'center',
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
   },
-  otpBoxFilled: { borderColor: colors.primary },
-  otpBoxError: { borderColor: colors.danger },
+  otpBoxFilled: { borderColor: t.colors.brand },
+  otpBoxError: { borderColor: t.colors.danger },
   otpError: {
-    color: colors.danger,
+    color: t.colors.dangerText,
     fontSize: fontSize.sm,
     textAlign: 'center',
     marginBottom: 8,
   },
   resendRow: { alignItems: 'center', marginTop: 4 },
-  resendCountdown: { color: colors.textSecondary, fontSize: fontSize.sm },
-  resendLink: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700' },
+  resendCountdown: { color: t.colors.textSecondary, fontSize: fontSize.sm },
+  resendLink: { color: t.colors.brandText, fontSize: fontSize.sm, fontWeight: '700' },
   switchMode: { alignItems: 'center', marginTop: 8 },
-  switchModeText: { color: colors.textSecondary, fontSize: fontSize.sm },
+  switchModeText: { color: t.colors.textSecondary, fontSize: fontSize.sm },
 });

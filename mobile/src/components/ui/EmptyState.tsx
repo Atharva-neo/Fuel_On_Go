@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fontSize } from '../../theme/stitch';
+import { fontSize } from '../../theme/stitch';
 import Button from './Button';
+import { useTheme, type Theme } from '../../theme';
 
 interface EmptyStateProps {
   icon: string;
@@ -18,6 +19,8 @@ export default function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>{icon}</Text>
@@ -32,7 +35,7 @@ export default function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -46,13 +49,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: t.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,

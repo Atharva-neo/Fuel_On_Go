@@ -2,12 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
+import { useTheme, type Theme } from '../theme';
 
 function sanitizePhone(v: string) {
   return v.replace(/\D/g, '').slice(0, 10);
 }
 
 export default function AdminAuthScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const setPendingAuth = useAuthStore((s) => s.setPendingAuth);
@@ -72,52 +75,52 @@ export default function AdminAuthScreen({ navigation }: any) {
           onChangeText={(v) => setPhone(sanitizePhone(v))}
           keyboardType="number-pad"
           placeholder="9876543210"
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={t.colors.placeholder}
           maxLength={10}
         />
       </View>
 
       <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleContinue} disabled={loading}>
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Continue as Pump Owner</Text>}
+        {loading ? <ActivityIndicator color={t.colors.onInverse} /> : <Text style={styles.buttonText}>Continue as Pump Owner</Text>}
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.bg,
     paddingHorizontal: 24,
     justifyContent: 'center',
   },
   title: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: -1,
   },
   subtitle: {
     marginTop: 8,
     marginBottom: 32,
-    color: '#71717A',
+    color: t.colors.textSecondary,
     fontSize: 16,
     letterSpacing: -0.2,
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.surfaceAlt,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: t.colors.border,
     paddingHorizontal: 16,
     height: 60,
   },
   prefix: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
     marginRight: 12,
   },
   input: {
@@ -125,12 +128,12 @@ const styles = StyleSheet.create({
     height: 60,
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: 1,
   },
   button: {
     marginTop: 24,
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.inverse,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
@@ -139,7 +142,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: t.colors.onInverse,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,

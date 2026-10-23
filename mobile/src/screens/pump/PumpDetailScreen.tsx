@@ -17,8 +17,14 @@ import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon } from '../../components/ui/Icons';
 import { format } from 'date-fns';
 import SlotCarousel from '../../components/SlotCarousel';
+import { useTheme, type Theme } from '../../theme';
+import RatingBadge from '../../components/RatingBadge';
+import { groupSlotsByPeriod, istDate, slotStartMs } from '../../utils/schedule';
+import { useRatingEvents } from '../../ratings/ratingEvents';
 
 export default function PumpDetailScreen({ route, navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const { pumpId } = route.params;
   const [pump, setPump] = useState<any>(null);
   const [slots, setSlots] = useState<any[]>([]);
@@ -31,16 +37,20 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
 
+  const ratingsVersion = useRatingEvents((s) => s.version);
+  // Refetch on open and after a rating was saved, so the average/count never go stale.
   useEffect(() => {
     fetchDetails();
-  }, []);
+  }, [ratingsVersion]);
 
   const fetchDetails = async () => {
     try {
       const pRes = await api.get(`/pumps/${pumpId}`);
       setPump(pRes.data);
-      const sRes = await api.get(`/slots/${pumpId}`);
-      setSlots(Array.isArray(sRes.data) ? sRes.data : []);
+      // Same server-side list the owner sees in Manage Slots; one request per day shown in the tabs.
+      const days = [istDate(0), istDate(1)];
+      const lists = await Promise.all(days.map((d) => api.get(`/slots/${pumpId}`, { params: { date: d } })));
+      setSlots(lists.flatMap((r) => (Array.isArray(r.data) ? r.data : [])));
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Unable to load details.');
@@ -63,15 +73,15 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   };
 
   const now = new Date();
-  const todayStr = format(now, 'yyyy-MM-dd');
+  const todayStr = istDate(0);
 
   const isBookable = (slot: any) => {
     if (slot.status === 'deactivated' || slot.is_deactivated) return false;
     const cap = Number(slot.capacity ?? slot.max_capacity ?? 0);
     const booked = Number(slot.booked_count ?? cap - Number(slot.available_capacity ?? cap));
     if (booked >= cap) return false;
-    const slotStart = new Date(`${slot.slot_date || slot.date}T${slot.start_time}`);
-    if (Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime()) return false;
+    const startMs = slotStartMs(slot.slot_date || slot.date, String(slot.start_time).slice(0, 8));
+    if (Number.isFinite(startMs) && startMs < now.getTime()) return false;
     return true;
   };
 
@@ -86,27 +96,15 @@ export default function PumpDetailScreen({ route, navigation }: any) {
     }).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
   }, [slots, activeTab, todayStr]);
 
-  const bySection = useMemo(() => {
-    const groups = {
-      morning: [] as any[],
-      afternoon: [] as any[],
-      evening: [] as any[],
-    };
-    filteredSlots.forEach((s) => {
-      const hour = Number(String(s.start_time).slice(0, 2));
-      if (hour >= 6 && hour < 12) groups.morning.push(s);
-      else if (hour >= 12 && hour < 18) groups.afternoon.push(s);
-      else if (hour >= 18 && hour <= 22) groups.evening.push(s);
-    });
-    return groups;
-  }, [filteredSlots]);
+  // Every hour of the day has a section (no hard-coded 6AM-10PM window); empty ones are hidden.
+  const periods = useMemo(() => groupSlotsByPeriod(filteredSlots).filter((g) => g.data.length > 0), [filteredSlots]);
 
   const price = Number(pump?.cng_price_per_kg || 89.5);
 
   if (loading || !pump) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#00C896" />
+        <ActivityIndicator size="large" color={t.colors.brandText} />
       </View>
     );
   }
@@ -118,11 +116,17 @@ export default function PumpDetailScreen({ route, navigation }: any) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeftIcon size={24} color="#FFFFFF" />
+            <ArrowLeftIcon size={24} color={t.colors.text} />
           </TouchableOpacity>
-          <View style={styles.ratingBadge}>
-            <Text style={styles.ratingText}>{pump.google_rating || '4.5'} ★</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.ratingBadge}
+            accessibilityRole="button"
+            accessibilityLabel="View reviews"
+            onPress={() => navigation.navigate('PumpReviews', { pumpId, pumpName: pump.name })}
+          >
+            <RatingBadge average={pump.rating_avg} count={pump.rating_count} size={13} />
+            <Text style={styles.ratingText}>Reviews</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.pumpName}>{pump.name}</Text>
@@ -161,21 +165,18 @@ export default function PumpDetailScreen({ route, navigation }: any) {
         </View>
 
         <Text style={styles.sectionTitle}>Available Slots</Text>
-        {[
-          { key: 'morning', label: 'Morning', icon: 'weather-sunset-up', range: '(6AM - 12PM)', data: bySection.morning },
-          { key: 'afternoon', label: 'Afternoon', icon: 'white-balance-sunny', range: '(12PM - 6PM)', data: bySection.afternoon },
-          { key: 'evening', label: 'Evening', icon: 'weather-night', range: '(6PM - 10PM)', data: bySection.evening },
-        ].map((section) => (
+        {periods.length === 0 ? (
+          <Text style={styles.empty}>No slots available for this day</Text>
+        ) : null}
+        {periods.map((section) => (
           <View key={section.key} style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
-              <MaterialCommunityIcons name={section.icon as any} size={16} color="#0A0A0A" />
+              <MaterialCommunityIcons name={section.icon as any} size={16} color={t.colors.text} />
               <Text style={styles.sectionHeader}>
                 {section.label} · {openSlotsCount(section.data)} slots available
               </Text>
             </View>
-            {section.data.length === 0 ? (
-              <Text style={styles.empty}>No {section.key} slots available</Text>
-            ) : (
+            {(
               <SlotCarousel
                 slots={section.data}
                 selectedSlotId={selectedSlot?.id}
@@ -236,19 +237,19 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.bg,
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.surface,
   },
   header: {
-    backgroundColor: '#111111',
+    backgroundColor: t.colors.surface,
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 32,
@@ -265,31 +266,36 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: t.colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
   ratingBadge: {
-    backgroundColor: '#00C896',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: t.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: t.colors.border,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    minHeight: 36,
     borderRadius: 12,
   },
   ratingText: {
-    color: '#0A0A0A',
+    color: t.colors.brandText,
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 12,
   },
   pumpName: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: t.colors.text,
     letterSpacing: -0.5,
     marginBottom: 8,
   },
   pumpAddress: {
     fontSize: 15,
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     marginBottom: 24,
     lineHeight: 22,
   },
@@ -301,18 +307,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
-    color: '#71717A',
+    color: t.colors.textSecondary,
     fontSize: 13,
     marginBottom: 4,
     fontWeight: '600',
   },
   statValue: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
   statValueHighlight: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -321,12 +327,12 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: t.colors.surfaceAlt,
     borderRadius: 16,
     padding: 4,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: t.colors.border,
   },
   tab: {
     flex: 1,
@@ -335,8 +341,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   tabActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: t.colors.surface,
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -345,16 +351,16 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#71717A',
+    color: t.colors.textSecondary,
   },
   tabTextActive: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontWeight: '800',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#0A0A0A',
+    color: t.colors.text,
     letterSpacing: -0.5,
     marginBottom: 16,
   },
@@ -370,10 +376,10 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0A0A0A',
+    color: t.colors.text,
   },
   empty: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     marginTop: 20,
@@ -383,43 +389,43 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: t.colors.border,
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
   },
-  slotAvailable: { borderColor: '#00C896' },
-  slotFull: { backgroundColor: '#F4F4F5' },
-  slotExpired: { backgroundColor: '#F8FAFC' },
-  slotDeactivated: { backgroundColor: '#FED7AA' },
-  slotMine: { backgroundColor: '#0D9488' },
-  tileTime: { fontWeight: '800', color: '#0A0A0A' },
-  tileMeta: { fontSize: 11, marginTop: 6, color: '#475569', textAlign: 'center' },
-  strike: { textDecorationLine: 'line-through', color: '#9CA3AF' },
+  slotAvailable: { borderColor: t.colors.brand },
+  slotFull: { backgroundColor: t.colors.surfaceAlt },
+  slotExpired: { backgroundColor: t.colors.surfaceAlt },
+  slotDeactivated: { backgroundColor: t.colors.warningTint },
+  slotMine: { backgroundColor: t.colors.info },
+  tileTime: { fontWeight: '800', color: t.colors.text },
+  tileMeta: { fontSize: 11, marginTop: 6, color: t.colors.textSecondary, textAlign: 'center' },
+  strike: { textDecorationLine: 'line-through', color: t.colors.textMuted },
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: t.colors.scrim,
     justifyContent: 'flex-end',
   },
   sheetCard: {
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 32 : 20,
   },
   sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
-  sheetText: { color: '#334155', marginBottom: 4 },
-  sheetNote: { color: '#64748B', fontSize: 13, lineHeight: 18, marginBottom: 4 },
+  sheetText: { color: t.colors.textSecondary, marginBottom: 4 },
+  sheetNote: { color: t.colors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 4 },
   radioRow: { flexDirection: 'row', gap: 10, marginVertical: 8 },
-  radioBtn: { paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8 },
+  radioBtn: { paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: t.colors.border, borderRadius: 8 },
   confirmBtn: {
     marginTop: 12,
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  confirmText: { color: '#0A0A0A', fontWeight: '800' },
+  confirmText: { color: t.colors.onBrand, fontWeight: '800' },
 });

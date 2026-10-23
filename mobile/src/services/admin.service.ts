@@ -54,6 +54,11 @@ export const adminService = {
     return data;
   },
 
+  async markNoShow(bookingId: string) {
+    const { data } = await api.post(`/bookings/${bookingId}/no-show`);
+    return data;
+  },
+
   async exportBookingsCsv(params?: { date?: string; status?: string }): Promise<string> {
     const { data } = await api.get('/admin/bookings/export', {
       params,

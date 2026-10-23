@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
-import { colors, radius, fontSize } from '../../theme/stitch';
+import { radius, fontSize } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 interface ChipProps {
   label: string;
@@ -12,6 +13,8 @@ interface ChipProps {
 }
 
 export default function Chip({ label, selected = false, onPress, icon, disabled, style }: ChipProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -34,7 +37,7 @@ export default function Chip({ label, selected = false, onPress, icon, disabled,
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   base: {
     borderRadius: radius.full,
     paddingHorizontal: 14,
@@ -42,12 +45,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   selected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: t.colors.brand,
+    borderColor: t.colors.brand,
   },
   unselected: {
-    backgroundColor: colors.bgInput,
-    borderColor: colors.border,
+    backgroundColor: t.colors.inputBg,
+    borderColor: t.colors.border,
   },
   disabled: {
     opacity: 0.4,
@@ -65,9 +68,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   labelSelected: {
-    color: colors.white,
+    color: t.colors.onBrand,
   },
   labelUnselected: {
-    color: colors.textSecondary,
+    color: t.colors.textSecondary,
   },
 });

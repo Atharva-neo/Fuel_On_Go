@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTheme, type Theme } from '../theme';
 
 const AdminDashboardScreen = ({ navigation }: { navigation: any }) => {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const handleNavigation = (screen: string) => {
     navigation.navigate(screen);
   };
@@ -41,22 +44,22 @@ const AdminDashboardScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: t.colors.surfaceAlt,
     padding: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: t.colors.text,
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#00c896',
+    backgroundColor: t.colors.brand,
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 8,
@@ -65,7 +68,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: t.colors.onBrand,
     fontSize: 16,
     fontWeight: 'bold',
   },

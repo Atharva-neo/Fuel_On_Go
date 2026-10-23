@@ -1,6 +1,7 @@
 const express = require('express');
 const { supabase } = require('../config/supabase');
 const { authenticate } = require('./authRoutes');
+const { defaultPolicy, scoreBand } = require('../config/trustPolicy');
 
 const router = express.Router();
 
@@ -60,7 +61,8 @@ router.get('/stats', authenticate, async (req, res) => {
       arrived_count: arrivedCount || 0,
       no_show_count: noShowCount || 0,
       cancelled_count: cancelledCount || 0,
-      trust_score: user?.trust_score ?? 100,
+      trust_score: user?.trust_score ?? defaultPolicy.defaultScore,
+      trust_label: scoreBand(user?.trust_score ?? defaultPolicy.defaultScore).label,
       is_blocked: user?.is_blocked ?? false,
       name: user?.name || '',
       phone: user?.phone || '',

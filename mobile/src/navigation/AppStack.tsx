@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../theme';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,20 +23,23 @@ export type AppStackParamList = {
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
-const HomeTabs = () => (
+const HomeTabs = () => {
+  const t = useTheme();
+  return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarStyle: {
-        backgroundColor: '#0A0A0A',
-        borderTopWidth: 0,
+        backgroundColor: t.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: t.colors.border,
         elevation: 10,
         height: 64,
         paddingBottom: 8,
         paddingTop: 8,
       },
-      tabBarActiveTintColor: '#00C896',
-      tabBarInactiveTintColor: '#A1A1AA',
+      tabBarActiveTintColor: t.colors.brandText,
+      tabBarInactiveTintColor: t.colors.textMuted,
       tabBarLabelStyle: {
         fontWeight: '700',
         fontSize: 11,
@@ -55,7 +59,8 @@ const HomeTabs = () => (
     <Tab.Screen name="MyBookings" component={MyBookingsScreen} options={{ tabBarLabel: 'Bookings' }} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
-);
+  );
+};
 
 export default function AppStack() {
   return (

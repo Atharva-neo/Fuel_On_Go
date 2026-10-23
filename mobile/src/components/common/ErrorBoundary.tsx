@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { getCurrentTheme, type Theme } from '../../theme';
 
 interface Props {
   children: ReactNode;
@@ -30,6 +31,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const styles = createStyles(getCurrentTheme());
       return (
         <View style={styles.container}>
           <View style={styles.card}>
@@ -54,32 +56,32 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0E1A',
+    backgroundColor: t.colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   card: {
     width: '100%',
-    backgroundColor: '#1A1E2E',
+    backgroundColor: t.colors.surface,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2A2E3E',
+    borderColor: t.colors.border,
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FF4D4D',
+    color: t.colors.dangerText,
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
-    color: '#9BA1B0',
+    color: t.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     maxHeight: 200,
     width: '100%',
-    backgroundColor: '#0D1117',
+    backgroundColor: t.colors.bgAlt,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
@@ -95,16 +97,16 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: 'monospace',
     fontSize: 12,
-    color: '#D1D5DA',
+    color: t.colors.text,
   },
   button: {
-    backgroundColor: '#00C853',
+    backgroundColor: t.colors.brand,
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: t.colors.onBrand,
     fontWeight: '600',
     fontSize: 16,
   },

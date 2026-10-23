@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, fontSize, radius, spacing } from '../../theme/stitch';
+import { fontSize, radius, spacing } from '../../theme/stitch';
 import { useAuthStore } from '../../store/authStore';
+import { useTheme, type Theme } from '../../theme';
 
 export default function EditProfileScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const { user, updateUser } = useAuthStore();
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -60,10 +63,10 @@ export default function EditProfileScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: t.colors.bg,
   },
   container: {
     padding: spacing.md,
@@ -71,33 +74,33 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     marginBottom: spacing.md,
   },
   label: {
-    color: colors.textSecondary,
+    color: t.colors.textSecondary,
     fontSize: fontSize.sm,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: t.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
-    color: colors.textPrimary,
+    color: t.colors.text,
   },
   button: {
     marginTop: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: t.colors.brand,
     borderRadius: radius.md,
     alignItems: 'center',
     paddingVertical: 12,
   },
   buttonText: {
-    color: '#fff',
+    color: t.colors.onBrand,
     fontWeight: '700',
     fontSize: fontSize.base,
   },

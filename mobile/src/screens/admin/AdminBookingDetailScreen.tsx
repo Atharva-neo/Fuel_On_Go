@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { bookingService } from '../../services/booking.service';
+import { useTheme, type Theme } from '../../theme';
 
 export default function AdminBookingDetailScreen({ route }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [booking, setBooking] = useState(route.params?.booking || null);
   const [loading, setLoading] = useState(false);
 
@@ -61,40 +64,40 @@ export default function AdminBookingDetailScreen({ route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.bg,
     padding: 16,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
   },
   missing: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
   },
   title: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 24,
     marginBottom: 12,
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: t.colors.border,
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
   row: {
-    color: '#334155',
+    color: t.colors.textSecondary,
   },
   checkinBtn: {
     marginTop: 16,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: t.colors.info,
     borderRadius: 12,
     alignItems: 'center',
     paddingVertical: 12,
@@ -103,18 +106,18 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   checkinText: {
-    color: '#fff',
+    color: t.colors.onInfo,
     fontWeight: '700',
   },
   doneBadge: {
     marginTop: 16,
-    backgroundColor: '#dcfce7',
+    backgroundColor: t.colors.successTint,
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
   doneText: {
-    color: '#166534',
+    color: t.colors.successText,
     fontWeight: '700',
   },
 });

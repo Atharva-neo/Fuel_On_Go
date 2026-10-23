@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { Colors, Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
+import { Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
+import Logo from './Logo';
+import { useTheme, type Theme } from '../theme';
 
 interface QRDisplayProps {
   qrToken: string | null;
@@ -9,6 +11,8 @@ interface QRDisplayProps {
 }
 
 export default function QRDisplay({ qrToken, loading }: QRDisplayProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   if (loading || !qrToken) {
     return (
       <View style={[styles.container, styles.skeleton]}>
@@ -26,12 +30,12 @@ export default function QRDisplay({ qrToken, loading }: QRDisplayProps) {
         <QRCode
           value={qrToken}
           size={200}
-          backgroundColor={Colors.white}
-          color={Colors.background}
+          backgroundColor={t.colors.qrBackground}
+          color={t.colors.qrForeground}
         />
       </View>
       <View style={styles.labelWrapper}>
-        <Text style={styles.lightning}>⚡</Text>
+        <Logo size={20} />
         <Text style={styles.label}>Fuel on Go</Text>
       </View>
       <Text style={styles.tokenText} numberOfLines={1}>
@@ -41,13 +45,13 @@ export default function QRDisplay({ qrToken, loading }: QRDisplayProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: Spacing.lg,
   },
   qrWrapper: {
-    backgroundColor: Colors.white,
+    backgroundColor: t.colors.qrBackground,
     padding: Spacing.base,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
@@ -64,11 +68,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: Typography.fontSize.base,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: t.colors.text,
   },
   tokenText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
     fontFamily: 'monospace',
   },
   skeleton: {
@@ -77,11 +81,11 @@ const styles = StyleSheet.create({
   skeletonBox: {
     width: 220,
     height: 220,
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: t.colors.surfaceRaised,
     borderRadius: BorderRadius.lg,
   },
   loadingText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
   },
 });

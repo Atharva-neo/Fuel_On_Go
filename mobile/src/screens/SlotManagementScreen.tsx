@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
-import api from '../config/api';
+import api from '../config/api';import { useTheme, type Theme } from '../theme';
+
 
 interface Slot {
   id: string | number;
@@ -11,6 +12,8 @@ interface Slot {
 }
 
 const SlotManagementScreen = () => {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,21 +93,21 @@ const SlotManagementScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: t.colors.surfaceAlt,
     padding: 10,
   },
   listContainer: {
     paddingBottom: 20,
   },
   slotCard: {
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
     padding: 15,
     borderRadius: 8,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -120,24 +123,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   capacityButton: {
-    backgroundColor: '#00c896',
+    backgroundColor: t.colors.brand,
     padding: 10,
     borderRadius: 8,
     marginHorizontal: 5,
   },
   capacityButtonText: {
-    color: '#fff',
+    color: t.colors.onBrand,
     fontSize: 16,
     fontWeight: 'bold',
   },
   capacityInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: t.colors.border,
     borderRadius: 8,
     padding: 5,
     textAlign: 'center',
     width: 50,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
   },
 });
 

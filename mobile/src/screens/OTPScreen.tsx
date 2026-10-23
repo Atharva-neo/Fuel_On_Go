@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,10 +11,13 @@ import {
 } from 'react-native';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
+import { useTheme, type Theme } from '../theme';
 
 const OTP_LENGTH = 6;
 
 export default function OTPScreen({ route, navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const { phone, flow, name } = route.params || {};
   const [otp, setOtp] = useState(Array<string>(OTP_LENGTH).fill(''));
   const [countdown, setCountdown] = useState(60);
@@ -177,35 +180,35 @@ export default function OTPScreen({ route, navigation }: any) {
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.verifyBtn, verifying && styles.verifyBtnDisabled]} onPress={verify} disabled={verifying}>
-        {verifying ? <ActivityIndicator color="#0A0A0A" /> : <Text style={styles.verifyText}>Verify OTP</Text>}
+        {verifying ? <ActivityIndicator color={t.colors.text} /> : <Text style={styles.verifyText}>Verify OTP</Text>}
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.colors.bg,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   welcome: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#0A0A0A',
+    color: t.colors.text,
     marginBottom: 8,
     letterSpacing: -1,
   },
   title: {
     fontSize: 16,
-    color: '#71717A',
+    color: t.colors.textSecondary,
     marginBottom: 24,
     letterSpacing: -0.2,
   },
   banner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: t.colors.warningTint,
+    borderColor: t.colors.warning,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   bannerText: {
-    color: '#D97706',
+    color: t.colors.warningText,
     fontWeight: '700',
     fontSize: 14,
     letterSpacing: -0.2,
@@ -227,30 +230,30 @@ const styles = StyleSheet.create({
     width: 48,
     height: 60,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: t.colors.border,
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '800',
-    backgroundColor: '#FAFAFA',
-    color: '#0A0A0A',
+    backgroundColor: t.colors.surfaceAlt,
+    color: t.colors.text,
   },
   otpBoxActive: {
-    borderColor: '#00C896',
-    backgroundColor: 'rgba(0, 200, 150, 0.05)',
+    borderColor: t.colors.brand,
+    backgroundColor: t.colors.brandTint,
   },
   otpBoxError: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    borderColor: t.colors.danger,
+    backgroundColor: t.colors.dangerTint,
   },
   error: {
-    color: '#EF4444',
+    color: t.colors.dangerText,
     marginBottom: 12,
     fontWeight: '700',
     fontSize: 14,
   },
   countdown: {
-    color: '#A1A1AA',
+    color: t.colors.textMuted,
     fontSize: 14,
     marginBottom: 8,
     fontWeight: '500',
@@ -263,19 +266,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   linkText: {
-    color: '#00C896',
+    color: t.colors.brandText,
     fontWeight: '800',
     fontSize: 15,
   },
   linkTextDisabled: {
-    color: '#D4D4D8',
+    color: t.colors.textMuted,
   },
   verifyBtn: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
-    shadowColor: '#00C896',
+    shadowColor: t.colors.brand,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   verifyText: {
-    color: '#0A0A0A',
+    color: t.colors.text,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,

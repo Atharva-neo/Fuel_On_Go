@@ -10,24 +10,29 @@ import SlotManagementScreen from '../screens/admin/SlotManagementScreen';
 import AddPumpScreen from '../screens/admin/AddPumpScreen';
 import AdminBookingDetailScreen from '../screens/admin/AdminBookingDetailScreen';
 import CNGUpdateScreen from '../screens/admin/CNGUpdateScreen';
+import OwnerFeedbackScreen from '../screens/admin/OwnerFeedbackScreen';
+import { useTheme } from '../theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const AdminTabs = () => (
+const AdminTabs = () => {
+  const t = useTheme();
+  return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarStyle: {
-        backgroundColor: '#0A0A0A',
-        borderTopWidth: 0,
+        backgroundColor: t.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: t.colors.border,
         elevation: 10,
         height: 64,
         paddingBottom: 8,
         paddingTop: 8,
       },
-      tabBarActiveTintColor: '#00C896',
-      tabBarInactiveTintColor: '#A1A1AA',
+      tabBarActiveTintColor: t.colors.brandText,
+      tabBarInactiveTintColor: t.colors.textMuted,
       tabBarLabelStyle: {
         fontWeight: '700',
         fontSize: 11,
@@ -65,7 +70,8 @@ const AdminTabs = () => (
       options={{ tabBarLabel: 'Slots' }}
     />
   </Tab.Navigator>
-);
+  );
+};
 
 export default function AdminNavigator() {
   return (
@@ -74,6 +80,7 @@ export default function AdminNavigator() {
       <Stack.Screen name="AddPump" component={AddPumpScreen} />
       <Stack.Screen name="AdminBookingDetail" component={AdminBookingDetailScreen} />
       <Stack.Screen name="CngUpdate" component={CNGUpdateScreen} />
+      <Stack.Screen name="OwnerFeedback" component={OwnerFeedbackScreen} />
     </Stack.Navigator>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Animated,
@@ -6,7 +6,8 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { colors, radius } from '../../theme/stitch';
+import { radius } from '../../theme/stitch';
+import { useTheme, type Theme } from '../../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -23,6 +24,8 @@ export default function BottomSheet({
   snapHeight = 0.6,
   children,
 }: BottomSheetProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -86,17 +89,17 @@ export default function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: colors.overlay,
+    backgroundColor: t.colors.scrim,
   },
   sheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.bgSheet,
+    backgroundColor: t.colors.surfaceRaised,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingTop: 12,
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: radius.full,
-    backgroundColor: colors.border,
+    backgroundColor: t.colors.border,
     alignSelf: 'center',
     marginBottom: 12,
   },

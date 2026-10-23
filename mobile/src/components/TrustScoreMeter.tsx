@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
-import { Colors, Typography, Spacing } from '../config/theme';
+import { Typography, Spacing } from '../config/theme';
+import { useTheme, type Theme } from '../theme';
 
 interface TrustScoreMeterProps {
   score: number;
@@ -23,6 +24,8 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
 }
 
 export default function TrustScoreMeter({ score }: TrustScoreMeterProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const clampedScore = Math.max(0, Math.min(100, score));
   const size = 120;
   const cx = size / 2;
@@ -33,7 +36,7 @@ export default function TrustScoreMeter({ score }: TrustScoreMeterProps) {
   const endAngle = startAngle + (clampedScore / 100) * (maxAngle * 2);
 
   const color =
-    clampedScore >= 70 ? Colors.success : clampedScore >= 40 ? Colors.warning : Colors.error;
+    clampedScore >= 70 ? t.colors.successText : clampedScore >= 40 ? t.colors.warningText : t.colors.dangerText;
 
   const trackPath = describeArc(cx, cy, r, startAngle, startAngle + maxAngle * 2);
   const scorePath = clampedScore > 0 ? describeArc(cx, cy, r, startAngle, endAngle) : '';
@@ -41,7 +44,7 @@ export default function TrustScoreMeter({ score }: TrustScoreMeterProps) {
   return (
     <View style={styles.container}>
       <Svg width={size} height={size}>
-        <Path d={trackPath} stroke={Colors.surfaceBorder} strokeWidth="8" fill="none" strokeLinecap="round" />
+        <Path d={trackPath} stroke={t.colors.border} strokeWidth="8" fill="none" strokeLinecap="round" />
         {clampedScore > 0 && (
           <Path d={scorePath} stroke={color} strokeWidth="8" fill="none" strokeLinecap="round" />
         )}
@@ -54,7 +57,7 @@ export default function TrustScoreMeter({ score }: TrustScoreMeterProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     alignItems: 'center',
   },
@@ -71,7 +74,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
     marginTop: Spacing.xs,
   },
 });

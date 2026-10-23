@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { adminService } from '../../services/admin.service';
 import { ArrowLeftIcon } from '../../components/ui/Icons';
+import { normalizeSchedule } from '../../utils/schedule';
+import { useTheme, type Theme } from '../../theme';
 
 export default function CNGUpdateScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [pumpId, setPumpId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,23 +60,38 @@ export default function CNGUpdateScreen({ navigation }: any) {
       return;
     }
 
+    // Instant, specific feedback; the server validates again and stays the authority.
+    const schedule = normalizeSchedule(openingTime, closingTime);
+    if (!schedule.ok) {
+      Alert.alert('Check operating hours', schedule.message);
+      return;
+    }
+
     setSaving(true);
     try {
-      await adminService.updatePump(pumpId, {
+      const saved: any = await adminService.updatePump(pumpId, {
         name: name.trim(),
         address: address.trim(),
         city: city.trim(),
         district: district.trim(),
         pin_code: pinCode.trim() || undefined,
-        working_hours_start: openingTime,
-        working_hours_end: closingTime,
+        working_hours_start: schedule.open,
+        working_hours_end: schedule.close, // "24:00" = midnight
         vehicles_per_slot: vehiclesPerSlot,
         cng_price_per_kg: Number(price),
         fuel_density: Number(density),
         supply_status: supplyStatus,
         public_message: message,
       });
-      Alert.alert('Saved', 'Pump details updated.', [
+      const sync = saved?.slot_sync;
+      const slotNote = sync?.error
+        ? '\n\nYour hours were saved, but updating slots failed. Open Manage Slots and tap Refresh.'
+        : sync && (sync.created || sync.removed)
+        ? `\n\nSlots for the next 7 days now follow ${schedule.open} - ${schedule.close} (${sync.created} added${sync.removed ? `, ${sync.removed} old removed` : ''}). Existing bookings were kept.`
+        : '';
+      setOpeningTime(schedule.open);
+      setClosingTime(schedule.close);
+      Alert.alert('Saved', `Pump details updated.${slotNote}`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
@@ -85,7 +104,7 @@ export default function CNGUpdateScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#00C896" />
+        <ActivityIndicator size="large" color={t.colors.brandText} />
       </View>
     );
   }
@@ -94,7 +113,7 @@ export default function CNGUpdateScreen({ navigation }: any) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeftIcon size={22} color="#FFFFFF" />
+          <ArrowLeftIcon size={22} color={t.colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Edit Pump</Text>
       </View>
@@ -102,21 +121,21 @@ export default function CNGUpdateScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <Text style={styles.label}>Pump Name*</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={name} onChangeText={setName} />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={name} onChangeText={setName} />
 
           <Text style={styles.label}>Address*</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={address} onChangeText={setAddress} />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={address} onChangeText={setAddress} />
 
           <Text style={styles.label}>City*</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={city} onChangeText={setCity} />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={city} onChangeText={setCity} />
 
           <Text style={styles.label}>District*</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={district} onChangeText={setDistrict} />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={district} onChangeText={setDistrict} />
 
           <Text style={styles.label}>PIN Code</Text>
           <TextInput
             style={[styles.input, { marginBottom: 0 }]}
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={t.colors.placeholder}
             value={pinCode}
             onChangeText={setPinCode}
             keyboardType="number-pad"
@@ -127,13 +146,15 @@ export default function CNGUpdateScreen({ navigation }: any) {
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Opening Time*</Text>
-              <TextInput style={styles.input} placeholderTextColor="#6B7280" value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" />
+              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel="Opening time, 24 hour format" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Closing Time*</Text>
-              <TextInput style={styles.input} placeholderTextColor="#6B7280" value={closingTime} onChangeText={setClosingTime} placeholder="22:00" />
+              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={closingTime} onChangeText={setClosingTime} placeholder="22:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel="Closing time, 24 hour format" />
             </View>
           </View>
+
+          <Text style={styles.timeHint}>24-hour times. Use 24:00 for midnight. A closing time earlier than opening means overnight (e.g. 22:00 to 02:00).</Text>
 
           <Text style={styles.label}>Vehicles per slot</Text>
           <View style={styles.stepper}>
@@ -149,10 +170,10 @@ export default function CNGUpdateScreen({ navigation }: any) {
 
         <View style={styles.card}>
           <Text style={styles.label}>CNG Price (₹/kg)*</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
 
           <Text style={styles.label}>Fuel Density</Text>
-          <TextInput style={styles.input} placeholderTextColor="#6B7280" value={density} onChangeText={setDensity} keyboardType="decimal-pad" />
+          <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={density} onChangeText={setDensity} keyboardType="decimal-pad" />
 
           <Text style={styles.label}>Supply Status</Text>
           <View style={styles.chipRow}>
@@ -166,7 +187,7 @@ export default function CNGUpdateScreen({ navigation }: any) {
           <Text style={styles.label}>Public Message</Text>
           <TextInput
             style={[styles.input, styles.multiline, { marginBottom: 0 }]}
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={t.colors.placeholder}
             value={message}
             onChangeText={setMessage}
             multiline
@@ -182,14 +203,14 @@ export default function CNGUpdateScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
   },
   loader: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -197,7 +218,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.bg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
@@ -206,12 +227,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 22,
   },
@@ -220,24 +241,24 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: '#1F2937',
+    backgroundColor: t.colors.surface,
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
   },
   label: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     marginBottom: 8,
     fontSize: 13,
     fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#374151',
-    backgroundColor: '#111827',
-    color: '#FFFFFF',
+    borderColor: t.colors.border,
+    backgroundColor: t.colors.inputBg,
+    color: t.colors.text,
     borderRadius: 10,
     paddingHorizontal: 14,
     height: 46,
@@ -249,6 +270,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     paddingTop: 12,
   },
+  timeHint: { color: t.colors.textMuted, fontSize: 12, lineHeight: 17, marginBottom: 12 },
   timeRow: {
     flexDirection: 'row',
     gap: 12,
@@ -262,17 +284,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#374151',
+    backgroundColor: t.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.colors.text,
   },
   stepValue: {
-    color: '#FFFFFF',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 16,
     minWidth: 20,
@@ -286,26 +308,26 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: t.colors.border,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   chipActive: {
-    backgroundColor: '#00C896',
-    borderColor: '#00C896',
+    backgroundColor: t.colors.brand,
+    borderColor: t.colors.brand,
   },
   chipText: {
-    color: '#9CA3AF',
+    color: t.colors.textMuted,
     textTransform: 'capitalize',
     fontWeight: '600',
     fontSize: 12,
   },
   chipTextActive: {
-    color: '#0A0A0A',
+    color: t.colors.onBrand,
   },
   submitBtn: {
-    backgroundColor: '#00C896',
+    backgroundColor: t.colors.brand,
     borderRadius: 14,
     alignItems: 'center',
     paddingVertical: 16,
@@ -314,7 +336,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitText: {
-    color: '#0A0A0A',
+    color: t.colors.onBrand,
     fontWeight: '800',
     fontSize: 16,
   },

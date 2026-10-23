@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,9 +22,11 @@ import NavigationMapScreen from '../screens/booking/NavigationMapScreen';
 import PaymentScreen from '../screens/booking/PaymentScreen';
 import LocationSetupScreen from '../screens/auth/LocationSetupScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import PumpReviewsScreen from '../screens/pump/PumpReviewsScreen';
 
 import AdminNavigator from './AdminNavigator';
 import { useAuthStore } from '../store/authStore';
+import { useTheme, type Theme } from '../theme';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -70,12 +72,15 @@ const HomeStackNavigator = () => (
   </HomeStack.Navigator>
 );
 
-const UserTabs = () => (
+const UserTabs = () => {
+  const t = useTheme();
+  return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarActiveTintColor: '#00C896',
-      tabBarInactiveTintColor: '#71717A',
+      tabBarStyle: { backgroundColor: t.colors.surface, borderTopColor: t.colors.border },
+      tabBarActiveTintColor: t.colors.brandText,
+      tabBarInactiveTintColor: t.colors.textMuted,
       tabBarIcon: ({ color, size }) => {
         let iconName: any;
         if (route.name === 'Home') iconName = 'home-variant';
@@ -101,12 +106,14 @@ const UserTabs = () => (
       options={{ tabBarLabel: 'Profile' }}
     />
   </Tab.Navigator>
-);
+  );
+};
 
 const UserNavigator = () => (
   <UserRootStack.Navigator screenOptions={{ headerShown: false }}>
     <UserRootStack.Screen name="UserTabs" component={UserTabs} />
     <UserRootStack.Screen name="PumpDetail" component={PumpDetailScreen} />
+    <UserRootStack.Screen name="PumpReviews" component={PumpReviewsScreen} />
     <UserRootStack.Screen name="BookingDetail" component={BookingDetailScreen} />
     <UserRootStack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
     <UserRootStack.Screen name="Navigation" component={NavigationMapScreen} />
@@ -118,6 +125,8 @@ const UserNavigator = () => (
 );
 
 const RootGate = () => {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const { token, user, loading, rehydrateAuth } = useAuthStore();
   const [bootLoading, setBootLoading] = useState(true);
   const [status, setStatus] = useState('Initializing...');
@@ -148,7 +157,7 @@ const RootGate = () => {
     return (
       <View style={styles.loaderWrap}>
         <SplashScreen />
-        <ActivityIndicator size="small" color="#00C896" style={styles.spinner} />
+        <ActivityIndicator size="small" color={t.colors.brandText} style={styles.spinner} />
         <Text style={styles.status}>{status}</Text>
       </View>
     );
@@ -174,21 +183,38 @@ const RootGate = () => {
 };
 
 export default function RootNavigator() {
+  const t = useTheme();
+  // Navigation chrome (headers, cards, transitions) follows the same theme store.
+  const navTheme = useMemo(
+    () => ({
+      ...(t.isDark ? DarkTheme : DefaultTheme),
+      colors: {
+        ...(t.isDark ? DarkTheme : DefaultTheme).colors,
+        primary: t.colors.brandText,
+        background: t.colors.bg,
+        card: t.colors.surface,
+        text: t.colors.text,
+        border: t.colors.border,
+        notification: t.colors.danger,
+      },
+    }),
+    [t]
+  );
   const onReady = useCallback(() => {
     console.log('[Navigation] Ready');
   }, []);
 
   return (
-    <NavigationContainer onReady={onReady}>
+    <NavigationContainer theme={navTheme} onReady={onReady}>
       <RootGate />
     </NavigationContainer>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   loaderWrap: {
     flex: 1,
-    backgroundColor: '#0A0E1A',
+    backgroundColor: t.colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -196,7 +222,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   status: {
-    color: '#64748b',
+    color: t.colors.textMuted,
     marginTop: 12,
     fontSize: 12,
   },

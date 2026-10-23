@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthStack';
-import { colors, fontSize, radius, spacing } from '../../theme/stitch';
+import { fontSize, radius, spacing } from '../../theme/stitch';
 import { useAuthStore } from '../../store/authStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Chip from '../../components/ui/Chip';
+import { useTheme, type Theme } from '../../theme';
 
 type RegNav = NativeStackNavigationProp<AuthStackParamList, 'Registration'>;
 
@@ -28,6 +29,8 @@ const VEHICLE_OPTIONS: { label: string; value: VehicleType; icon: string }[] = [
 ];
 
 export default function RegistrationScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const navigation = useNavigation<RegNav>();
   const { register } = useAuthStore();
 
@@ -140,28 +143,28 @@ export default function RegistrationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+const createStyles = (t: Theme) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.colors.bg },
   scroll: { flexGrow: 1, padding: spacing.md, paddingTop: spacing.lg },
   header: { marginBottom: spacing.lg },
   title: {
     fontSize: fontSize.xxl,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: t.colors.text,
     marginBottom: 6,
   },
-  subtitle: { fontSize: fontSize.base, color: colors.textSecondary },
+  subtitle: { fontSize: fontSize.base, color: t.colors.textSecondary },
   form: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: t.colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: t.colors.border,
   },
   sectionLabel: {
     fontSize: fontSize.sm,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: t.colors.textSecondary,
     marginBottom: 8,
   },
   chipRow: {

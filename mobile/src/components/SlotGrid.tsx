@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, Typography, Spacing, BorderRadius } from '../config/theme';
+import { Typography, Spacing, BorderRadius } from '../config/theme';
+import { useTheme, type Theme } from '../theme';
 // Legacy component — kept for compatibility
 interface OldSlot {
   time: string;
@@ -32,6 +33,8 @@ function getSlotStatus(slot: OldSlot, timeStr: string) {
 }
 
 export default function SlotGrid({ slots, onSlotSelect }: SlotGridProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   if (!slots.length) {
     return (
       <View style={styles.empty}>
@@ -89,7 +92,7 @@ export default function SlotGrid({ slots, onSlotSelect }: SlotGridProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -107,48 +110,48 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   slotAvailable: {
-    backgroundColor: Colors.successBg,
-    borderColor: Colors.success,
+    backgroundColor: t.colors.successTint,
+    borderColor: t.colors.success,
   },
   slotLimited: {
-    backgroundColor: Colors.warningBg,
-    borderColor: Colors.warning,
+    backgroundColor: t.colors.warningTint,
+    borderColor: t.colors.warning,
   },
   slotFull: {
-    backgroundColor: Colors.surfaceElevated,
-    borderColor: Colors.surfaceBorder,
+    backgroundColor: t.colors.surfaceRaised,
+    borderColor: t.colors.border,
   },
   slotExpired: {
-    backgroundColor: Colors.surfaceElevated,
-    borderColor: Colors.surfaceBorder,
+    backgroundColor: t.colors.surfaceRaised,
+    borderColor: t.colors.border,
     opacity: 0.5,
   },
   slotTime: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: t.colors.text,
     marginBottom: 2,
   },
   slotTimeExpired: {
     textDecorationLine: 'line-through',
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
   },
   slotTimeFull: {
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
   },
   slotCount: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
   },
   slotCountFull: {
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
   },
   empty: {
     padding: Spacing.xxxl,
     alignItems: 'center',
   },
   emptyText: {
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
     fontSize: Typography.fontSize.base,
   },
 });

@@ -25,13 +25,23 @@ import {
 } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import MapView from '../../components/MapView';
+import MapView, { type CameraCommand } from '../../components/MapView';
 import { pumpService, type Pump } from '../../services/pump.service';
 import { useLocationStore, type LocationBbox } from '../../store/locationStore';
 import { useAuthStore } from '../../store/authStore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LocationIcon, SearchIcon } from '../../components/ui/Icons';
-import { getCurrentDeviceLocation } from '../../utils/location';
+import {
+  describeLocationProblem,
+  locationController,
+  openLocationSettings,
+  useDeviceLocation,
+  useLocationSession,
+} from '../../location';
+import { LOCATION_CONFIG } from '../../location/config';
+import { formatStraightLine, movedMoreThan, rankPumps } from '../../location/geo';
+import { createNearbyLoader, type NearbyState } from '../../location/nearbyLoader';
+import * as camera from '../../location/cameraPolicy';
 import {
   SNAP_COLLAPSED,
   SNAP_EXPANDED,
@@ -42,6 +52,10 @@ import {
   pickSnapIndex,
   resolveDrag,
 } from '../../utils/bottomSheetMath';
+import ThemeToggle from '../../components/ThemeToggle';
+import RatingBadge from '../../components/RatingBadge';
+import { useRatingEvents } from '../../ratings/ratingEvents';
+import { useTheme, type Theme } from '../../theme';
 
 type SearchResult =
   | {
@@ -56,6 +70,12 @@ type SearchResult =
       bbox: [string, string, string, string];
     }
   | {
+      type: 'device';
+      id: string;
+      title: string;
+      subtitle: string;
+    }
+  | {
       type: 'pump';
       id: string;
       title: string;
@@ -63,10 +83,8 @@ type SearchResult =
       pumpId: string;
     };
 
-function formatDistance(value?: number) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '-- km';
-  return `${value.toFixed(1)} km`;
-}
+// Straight-line distance from the device; never presented as road distance.
+const formatDistance = formatStraightLine;
 
 function buildBbox(raw: [string, string, string, string]): LocationBbox {
   return {
@@ -88,6 +106,8 @@ function PumpPopup({
   onBook: () => void;
   onNavigate: () => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const dragY = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
@@ -118,12 +138,15 @@ function PumpPopup({
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         onPress={onDismiss}
       >
-        <MaterialCommunityIcons name="close" size={18} color="#64748b" />
+        <MaterialCommunityIcons name="close" size={18} color={t.colors.textSecondary} />
       </TouchableOpacity>
       <Text style={styles.popupName}>{pump.name}</Text>
       <Text style={styles.popupAddr} numberOfLines={1}>
         {pump.address}
       </Text>
+      <View style={{ marginBottom: 6 }}>
+        <RatingBadge average={pump.rating_avg} count={pump.rating_count} size={13} />
+      </View>
       <View style={styles.popupActions}>
         <TouchableOpacity style={styles.popupPrimary} onPress={onBook}>
           <Text style={styles.popupPrimaryText}>View & Book</Text>
@@ -145,6 +168,8 @@ const PumpRow = React.memo(function PumpRow({
   onBook: (pump: Pump) => void;
   onPumpTap: (pump: Pump) => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return (
     <TouchableOpacity style={styles.pumpCard} onPress={() => onPumpTap(pump)}>
       <View style={{ flex: 1 }}>
@@ -156,11 +181,12 @@ const PumpRow = React.memo(function PumpRow({
         </Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
-            <LocationIcon size={12} color="#5f6368" />
+            <LocationIcon size={12} color={t.colors.textSecondary} />
             <Text style={styles.metaText}>{formatDistance(pump.distance_km)}</Text>
           </View>
+          <RatingBadge average={pump.rating_avg} count={pump.rating_count} />
           <Text style={styles.metaText}>₹{pump.cng_price_per_kg}/kg</Text>
-          <Text style={[styles.metaText, { color: '#0f9d58', fontWeight: '700' }]}>
+          <Text style={[styles.metaText, { color: t.colors.successText, fontWeight: '700' }]}>
             {pump.available_slots_today ?? 0} slots
           </Text>
         </View>
@@ -211,6 +237,8 @@ function NearbyBottomSheet({
   onSnapChange: (index: number) => void;
   listBottomPadding: number;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const tops = useMemo(() => computeSheetTops(containerH, topInset), [containerH, topInset]);
   const topsRef = useRef(tops);
   topsRef.current = tops;
@@ -397,7 +425,7 @@ function NearbyBottomSheet({
             contentContainerStyle={[styles.sheetListContent, { paddingBottom: listBottomPadding }]}
             ListEmptyComponent={
               loading ? (
-                <ActivityIndicator style={{ marginTop: 24 }} color="#0ea5e9" />
+                <ActivityIndicator style={{ marginTop: 24 }} color={t.colors.infoText} />
               ) : error ? (
                 <View style={styles.sheetState}>
                   <Text style={styles.sheetStateText}>Couldn't load nearby pumps.</Text>
@@ -419,15 +447,32 @@ function NearbyBottomSheet({
 }
 
 export default function HomeScreen({ navigation }: any) {
-  const { lat, lng, city, displayName, bbox, isSet, setLocation } = useLocationStore();
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
+  // Live device position: one shared session for the whole app. This screen
+  // is focused => GPS runs; blurred/background => it is released.
+  useLocationSession(true);
+  const dev = useDeviceLocation();
+  // The area the user is browsing (a searched place). Independent of GPS.
+  const { mode, lat: mLat, lng: mLng, city: mCity, displayName: mDisplay, bbox, setLocation, followDevice } = useLocationStore();
+  const browsing = mode === 'manual';
 
-  const [pumps, setPumps] = useState<Pump[]>([]);
-  const [loadingPumps, setLoadingPumps] = useState(false);
+  const deviceCoord = useMemo(
+    () => (dev.fix ? { lat: dev.fix.lat, lng: dev.fix.lng } : null),
+    [dev.fix?.lat, dev.fix?.lng]
+  );
+  // Only a fresh GPS reading is allowed to produce "your distance".
+  const liveCoord = dev.isFresh ? deviceCoord : null;
+  const center = browsing ? (mLat != null && mLng != null ? { lat: mLat, lng: mLng } : null) : deviceCoord;
+
+  const [nearby, setNearby] = useState<NearbyState<Pump>>({ status: 'idle', pumps: [] });
+  const pumps = useMemo(() => rankPumps(nearby.pumps, liveCoord), [nearby.pumps, liveCoord]);
+  const loadingPumps = nearby.status === 'loading' && nearby.pumps.length === 0;
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedPump, setSelectedPump] = useState<Pump | null>(null);
-  const [loadError, setLoadError] = useState(false);
+  const loadError = nearby.status === 'error';
 
   // Real size of the area the sheet lives in (above the tab bar), not the
   // window height -- the sheet's snap points are derived from this.
@@ -459,54 +504,108 @@ export default function HomeScreen({ navigation }: any) {
     lat: number;
     lng: number;
     bbox?: [string, string, string, string] | null;
-  } | null>(bbox ? { lat, lng, bbox: [String(bbox.south), String(bbox.north), String(bbox.west), String(bbox.east)] } : null);
+  } | null>(
+    browsing && bbox && mLat != null && mLng != null
+      ? { lat: mLat, lng: mLng, bbox: [String(bbox.south), String(bbox.north), String(bbox.west), String(bbox.east)] }
+      : null
+  );
 
-  const regionBbox = useMemo(() => bbox ?? null, [bbox]);
+  const regionBbox = useMemo(() => (browsing ? bbox ?? null : null), [browsing, bbox]);
 
-  const loadNearby = async (args?: { lat?: number; lng?: number; bbox?: LocationBbox | null }) => {
-    const targetLat = args?.lat ?? lat;
-    const targetLng = args?.lng ?? lng;
-    const targetBbox = args?.bbox ?? regionBbox;
+  // ── nearby pumps: debounced, movement-thresholded, stale-proof ──────────
+  const loader = useMemo(
+    () =>
+      createNearbyLoader<Pump>({
+        debounceMs: LOCATION_CONFIG.nearbyDebounceMs,
+        onState: setNearby,
+        fetchNearby: (p, signal) => pumpService.getNearby({ ...p, signal }),
+      }),
+    []
+  );
+  useEffect(() => () => loader.cancel(), [loader]);
 
-    setLoadingPumps(true);
-    setLoadError(false);
-    try {
-      const data = await pumpService.getNearby({
-        lat: targetLat,
-        lng: targetLng,
-        bbox: targetBbox,
-        radius: 30000,
-      });
-      setPumps(data);
-    } catch {
-      setPumps([]);
-      setLoadError(true);
-    } finally {
-      setLoadingPumps(false);
+  const lastReq = useRef<{ key: string; center: { lat: number; lng: number } | null } | null>(null);
+  const reqKey = browsing
+    ? `m:${mLat}:${mLng}:${bbox?.north}:${bbox?.south}:${bbox?.east}:${bbox?.west}`
+    : 'device';
+
+  useEffect(() => {
+    // Wait for the first GPS answer before asking for coordinate-less results.
+    const settling = !browsing && !center && !dev.error && (dev.status === 'idle' || dev.status === 'requesting' || dev.status === 'acquiring');
+    if (settling) return;
+
+    const prev = lastReq.current;
+    const keyChanged = !prev || prev.key !== reqKey;
+    if (!keyChanged) {
+      if (browsing) return;
+      // Device mode: refetch only when the user actually moved, or when a position first appeared.
+      if (prev!.center && center && !movedMoreThan(prev!.center, center, LOCATION_CONFIG.nearbyMoveM)) return;
+      if (!prev!.center && !center) return;
     }
-  };
-
-  useEffect(() => {
-    loadNearby();
-  }, [lat, lng, regionBbox?.north, regionBbox?.south, regionBbox?.east, regionBbox?.west]);
-
-  // Use the device's real GPS position (not the hardcoded Kolhapur default)
-  // as soon as the user opens the map, so "You" and every pump's distance
-  // reflect where they actually are. Only runs once per session and only
-  // if they haven't already picked a location via search -- that stays in
-  // charge once they've explicitly browsed elsewhere.
-  useEffect(() => {
-    if (isSet) return;
-    let cancelled = false;
-    getCurrentDeviceLocation().then((loc) => {
-      if (cancelled || !loc) return;
-      setLocation(loc);
-    });
-    return () => {
-      cancelled = true;
-    };
+    lastReq.current = { key: reqKey, center };
+    loader.request(
+      {
+        lat: center?.lat,
+        lng: center?.lng,
+        bbox: regionBbox,
+        radius: LOCATION_CONFIG.nearbyRadiusM,
+      },
+      keyChanged
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqKey, center?.lat, center?.lng, dev.status, dev.error]);
+
+  // ── map camera: centre on first fix, follow only while the user lets it ──
+  const camRef = useRef(camera.initialCamera);
+  const camSeq = useRef(0);
+  const [cameraCmd, setCameraCmd] = useState<CameraCommand | null>(null);
+  const [following, setFollowing] = useState(true);
+  const issueCamera = useCallback((la: number, ln: number, zoom?: number, animate = false) => {
+    camSeq.current += 1;
+    setCameraCmd({ seq: camSeq.current, lat: la, lng: ln, zoom, animate });
   }, []);
+
+  useEffect(() => {
+    if (!dev.fix) return;
+    const r = camera.onFix(camRef.current, browsing);
+    camRef.current = r.state;
+    if (r.action === 'center-first') issueCamera(dev.fix.lat, dev.fix.lng, 14, false);
+    else if (r.action === 'follow') issueCamera(dev.fix.lat, dev.fix.lng, undefined, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dev.fix?.lat, dev.fix?.lng, dev.fix?.timestamp]);
+
+  const onUserGesture = useCallback(() => {
+    camRef.current = camera.onUserGesture(camRef.current);
+    setFollowing(false);
+  }, []);
+
+  // "My location" / "Use my current location": back to the real GPS position.
+  const goToMyLocation = useCallback(() => {
+    if (browsing) {
+      followDevice();
+      setSearchRegion(null);
+      setSelectedPump(null);
+    }
+    if (dev.fix) {
+      const r = camera.onRecenter(camRef.current);
+      camRef.current = r.state;
+      setFollowing(true);
+      issueCamera(dev.fix.lat, dev.fix.lng, 15, true);
+    } else if (dev.error === 'permission_blocked') {
+      openLocationSettings();
+    } else {
+      locationController.retry();
+    }
+  }, [browsing, dev.fix, dev.error, issueCamera, followDevice]);
+
+  // ── header text: honest about what it is showing ────────────────────────
+  const areaName = dev.areaState.area?.name;
+  const city = browsing ? mCity : areaName ?? (dev.fix ? 'Current location' : dev.error ? 'Location unavailable' : 'Locating...');
+  const displayName = browsing
+    ? mDisplay
+    : dev.areaState.area?.displayName ?? (dev.fix && dev.fix.source === 'cached' ? 'Approximate (last known)' : 'Using your device location');
+  const problem = browsing ? null : describeLocationProblem(dev);
+  const areaFailed = !browsing && !problem && dev.fix && dev.areaState.status === 'failed';
 
   useEffect(() => {
     if (!searchText.trim()) {
@@ -516,7 +615,11 @@ export default function HomeScreen({ navigation }: any) {
 
     const id = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${searchText}, Maharashtra, India`)}&format=json&addressdetails=1&limit=8`;
+        // Prefer places close to where the user actually is (soft bias, not a filter).
+        const bias = deviceCoord
+          ? `&viewbox=${deviceCoord.lng - 0.5},${deviceCoord.lat + 0.5},${deviceCoord.lng + 0.5},${deviceCoord.lat - 0.5}&bounded=0`
+          : '';
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${searchText}, Maharashtra, India`)}&format=json&addressdetails=1&limit=8${bias}`;
         const res = await fetch(url, {
           headers: { 'User-Agent': 'FuelOnGoApp/1.0' },
         });
@@ -570,6 +673,13 @@ export default function HomeScreen({ navigation }: any) {
   const onResultSelect = async (result: SearchResult) => {
     setSelectedPump(null);
 
+    if (result.type === 'device') {
+      setSearchVisible(false);
+      setSearchText('');
+      goToMyLocation();
+      return;
+    }
+
     if (result.type === 'pump') {
       setSearchVisible(false);
       setSearchText('');
@@ -595,7 +705,6 @@ export default function HomeScreen({ navigation }: any) {
 
     setSearchVisible(false);
     setSearchText('');
-    await loadNearby({ lat: result.lat, lng: result.lng, bbox: mapped });
   };
 
   const onBookPump = useCallback(
@@ -606,9 +715,41 @@ export default function HomeScreen({ navigation }: any) {
   );
   const onPumpTap = useCallback((pump: Pump) => setSelectedPump(pump), []);
   const retryNearby = useCallback(() => {
-    loadNearby();
+    lastReq.current = { key: reqKey, center };
+    loader.request(
+      { lat: center?.lat, lng: center?.lng, bbox: regionBbox, radius: LOCATION_CONFIG.nearbyRadiusM },
+      true
+    );
+  }, [loader, reqKey, center, regionBbox]);
+
+  // A rating was just saved somewhere: refetch so list averages are never stale.
+  const ratingsVersion = useRatingEvents((s) => s.version);
+  useEffect(() => {
+    if (ratingsVersion > 0) retryNearby();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lng, regionBbox]);
+  }, [ratingsVersion]);
+
+  // What the search modal offers before the user types anything.
+  const suggestions = useMemo<SearchResult[]>(() => {
+    const list: SearchResult[] = [
+      {
+        type: 'device',
+        id: 'device',
+        title: 'Use my current location',
+        subtitle: dev.areaState.area?.displayName ?? (dev.fix ? 'Your GPS position' : 'Location not available yet'),
+      },
+    ];
+    pumps.slice(0, 3).forEach((pump) =>
+      list.push({
+        type: 'pump',
+        id: `pump-${pump.id}`,
+        title: pump.name,
+        subtitle: `${formatDistance(pump.distance_km)} · ${pump.address}`,
+        pumpId: pump.id,
+      })
+    );
+    return list;
+  }, [pumps, dev.fix, dev.areaState.area]);
 
   return (
     <View
@@ -619,10 +760,15 @@ export default function HomeScreen({ navigation }: any) {
       }}
     >
       <MapView
-        userLat={lat}
-        userLng={lng}
+        device={
+          dev.fix
+            ? { lat: dev.fix.lat, lng: dev.fix.lng, accuracy: dev.fix.accuracy, live: dev.isFresh }
+            : null
+        }
         pumps={pumps}
         searchRegion={searchRegion}
+        cameraCommand={cameraCmd}
+        onUserGesture={onUserGesture}
         onPumpPress={(pumpId) => {
           const found = pumps.find((p) => p.id === pumpId) || null;
           setSelectedPump(found);
@@ -630,9 +776,9 @@ export default function HomeScreen({ navigation }: any) {
       />
 
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.locationPill} onPress={() => navigation.navigate('LocationSetup')}>
+        <TouchableOpacity style={styles.locationPill} onPress={() => setSearchVisible(true)}>
           <View style={styles.locationTitleRow}>
-            <LocationIcon size={12} color="#0A0A0A" />
+            <LocationIcon size={12} color={t.colors.text} />
             <Text style={styles.locationText}>{city}</Text>
           </View>
           <Text style={styles.locationSub} numberOfLines={1}>
@@ -641,8 +787,10 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchVisible(true)}>
-          <SearchIcon size={20} color="#0A0A0A" />
+          <SearchIcon size={20} color={t.colors.text} />
         </TouchableOpacity>
+
+        <ThemeToggle size={20} style={{ backgroundColor: t.colors.mapControlBg, borderColor: t.colors.border }} />
 
         <TouchableOpacity
           style={styles.searchBtn}
@@ -654,9 +802,40 @@ export default function HomeScreen({ navigation }: any) {
             ])
           }
         >
-          <MaterialCommunityIcons name="logout" size={18} color="#0A0A0A" />
+          <MaterialCommunityIcons name="logout" size={18} color={t.colors.text} />
         </TouchableOpacity>
       </View>
+
+      {problem || areaFailed ? (
+        <View style={styles.locBanner}>
+          <Text style={styles.locBannerText} numberOfLines={2}>
+            {problem ?? "Couldn't detect your area."}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (dev.error === 'permission_blocked') openLocationSettings();
+              else if (areaFailed) locationController.retryArea();
+              else locationController.retry();
+            }}
+          >
+            <Text style={styles.locBannerAction}>
+              {dev.error === 'permission_blocked' ? 'Settings' : 'Retry'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <TouchableOpacity
+        style={styles.myLocBtn}
+        accessibilityLabel={browsing ? 'Use my current location' : 'Center map on my location'}
+        onPress={goToMyLocation}
+      >
+        <MaterialCommunityIcons
+          name={following && !browsing ? 'crosshairs-gps' : 'crosshairs'}
+          size={22}
+          color={following && !browsing && dev.isFresh ? t.colors.infoText : t.colors.textSecondary}
+        />
+      </TouchableOpacity>
 
       {selectedPump && containerH > 0 ? (
         <Animated.View
@@ -710,14 +889,14 @@ export default function HomeScreen({ navigation }: any) {
           </View>
 
           <FlatList
-            data={results}
+            data={searchText.trim() ? results : suggestions}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.resultRow} onPress={() => onResultSelect(item)}>
                 <MaterialCommunityIcons
-                  name={item.type === 'pump' ? 'gas-station' : 'map-marker-outline'}
+                  name={item.type === 'pump' ? 'gas-station' : item.type === 'device' ? 'crosshairs-gps' : 'map-marker-outline'}
                   size={20}
-                  color="#0A0A0A"
+                  color={t.colors.text}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultTitle}>{item.title}</Text>
@@ -735,10 +914,10 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.bg,
   },
   topBar: {
     position: 'absolute',
@@ -747,15 +926,16 @@ const styles = StyleSheet.create({
     right: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     zIndex: 20,
   },
   locationPill: {
-    backgroundColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: t.colors.mapControlBg,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    width: '68%',
+    flex: 1,
+    minWidth: 0,
   },
   locationTitleRow: {
     flexDirection: 'row',
@@ -763,20 +943,51 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   locationText: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 14,
   },
   locationSub: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
+  },
+  locBanner: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 112 : 90,
+    left: 14,
+    right: 70,
+    zIndex: 19,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: t.colors.warningTint,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: t.colors.warning,
+  },
+  locBannerText: { flex: 1, color: t.colors.warningText, fontSize: 12 },
+  locBannerAction: { color: t.colors.infoText, fontWeight: '800', fontSize: 13 },
+  myLocBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 112 : 90,
+    right: 14,
+    zIndex: 19,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: t.colors.mapControlBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
   },
   searchBtn: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.98)',
+    backgroundColor: t.colors.mapControlBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -785,7 +996,7 @@ const styles = StyleSheet.create({
   },
   logoutIcon: {
     fontSize: 20,
-    color: '#dc2626',
+    color: t.colors.dangerText,
     fontWeight: '700',
   },
   popupAnchor: {
@@ -796,13 +1007,13 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   popup: {
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
+    borderColor: t.colors.border,
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -816,7 +1027,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1',
+    backgroundColor: t.colors.surfaceAlt,
   },
   popupClose: {
     position: 'absolute',
@@ -825,13 +1036,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   popupName: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '800',
     fontSize: 15,
     paddingRight: 24,
   },
   popupAddr: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     fontSize: 12,
     marginTop: 3,
     marginBottom: 10,
@@ -842,35 +1053,35 @@ const styles = StyleSheet.create({
   },
   popupPrimary: {
     flex: 1,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: t.colors.info,
     borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 10,
   },
   popupPrimaryText: {
-    color: '#fff',
+    color: t.colors.onInfo,
     fontWeight: '700',
   },
   popupSecondary: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#0ea5e9',
+    borderColor: t.colors.info,
     borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 10,
   },
   popupSecondaryText: {
-    color: '#0369a1',
+    color: t.colors.infoText,
     fontWeight: '700',
   },
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    shadowColor: '#000',
+    shadowColor: t.colors.shadow,
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -882,7 +1093,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 12,
     paddingHorizontal: 16,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: t.colors.border,
     borderBottomWidth: 1,
   },
   sheetList: {
@@ -898,30 +1109,30 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sheetStateText: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
   },
   sheetRetry: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: t.colors.info,
     borderRadius: 10,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   sheetRetryText: {
-    color: '#fff',
+    color: t.colors.onInfo,
     fontWeight: '700',
   },
   handle: {
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1',
+    backgroundColor: t.colors.surfaceAlt,
     marginBottom: 8,
   },
   sheetTitle: {
     alignSelf: 'flex-start',
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -931,15 +1142,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: t.colors.border,
     borderBottomWidth: 1,
   },
   pumpName: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '700',
   },
   pumpAddress: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
   },
@@ -950,7 +1161,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   metaText: {
-    color: '#475569',
+    color: t.colors.textSecondary,
     fontSize: 11,
   },
   metaItem: {
@@ -959,19 +1170,19 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   bookBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: t.colors.inverse,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 9,
   },
   bookBtnText: {
-    color: '#fff',
+    color: t.colors.onInverse,
     fontWeight: '700',
     fontSize: 12,
   },
   searchContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: t.colors.surface,
   },
   searchHeader: {
     flexDirection: 'row',
@@ -981,19 +1192,19 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 56 : 24,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: t.colors.border,
   },
   searchInput: {
     flex: 1,
     height: 44,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: t.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
-    color: '#0f172a',
+    color: t.colors.text,
   },
   cancel: {
-    color: '#0284c7',
+    color: t.colors.infoText,
     fontWeight: '700',
   },
   resultRow: {
@@ -1003,20 +1214,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: t.colors.border,
   },
   resultTitle: {
-    color: '#0f172a',
+    color: t.colors.text,
     fontWeight: '700',
   },
   resultSub: {
-    color: '#64748b',
+    color: t.colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
   },
   empty: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: t.colors.textMuted,
     marginTop: 30,
   },
 });

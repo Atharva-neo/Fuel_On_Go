@@ -1,3 +1,4 @@
+import { useTheme } from '../../theme';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 
@@ -14,6 +15,7 @@ export default function LoadingSkeleton({
   radius = 8,
   style,
 }: LoadingSkeletonProps) {
+  const t = useTheme();
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function LoadingSkeleton({
 
   const bgColor = shimmer.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#1a1a1a', '#2e2e2e'],
+    outputRange: [t.colors.surfaceAlt, t.colors.border],
   });
 
   return (

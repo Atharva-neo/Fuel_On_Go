@@ -1,32 +1,35 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
+import { Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
 import type { LocalBooking } from '../store/bookingStore';
+import { useTheme, type Theme } from '../theme';
 
 interface BookingCardProps {
   booking: LocalBooking;
   onPress: () => void;
 }
 
-function getStatusConfig(status: LocalBooking['status']) {
+function getStatusConfig(status: LocalBooking['status'], t: Theme) {
   switch (status) {
     case 'confirmed':
-      return { label: 'Confirmed', bg: Colors.infoBg, color: Colors.info };
+      return { label: 'Confirmed', bg: t.colors.infoTint, color: t.colors.infoText };
     case 'checked_in':
-      return { label: 'Arrived', bg: Colors.successBg, color: Colors.success };
+      return { label: 'Arrived', bg: t.colors.successTint, color: t.colors.successText };
     case 'completed':
-      return { label: 'Completed', bg: Colors.successBg, color: Colors.success };
+      return { label: 'Completed', bg: t.colors.successTint, color: t.colors.successText };
     case 'cancelled':
-      return { label: 'Cancelled', bg: Colors.surfaceElevated, color: Colors.textMuted };
+      return { label: 'Cancelled', bg: t.colors.surfaceRaised, color: t.colors.textMuted };
     case 'expired':
-      return { label: 'Expired', bg: Colors.errorBg, color: Colors.error };
+      return { label: 'Expired', bg: t.colors.dangerTint, color: t.colors.dangerText };
     default:
-      return { label: status, bg: Colors.surfaceElevated, color: Colors.textMuted };
+      return { label: status, bg: t.colors.surfaceRaised, color: t.colors.textMuted };
   }
 }
 
 export default function BookingCard({ booking, onPress }: BookingCardProps) {
-  const statusConfig = getStatusConfig(booking.status);
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
+  const statusConfig = getStatusConfig(booking.status, t);
 
   const formattedDate = new Date(booking.createdAt).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -66,14 +69,14 @@ export default function BookingCard({ booking, onPress }: BookingCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: t.colors.surfaceRaised,
     borderRadius: BorderRadius.lg,
     padding: Spacing.base,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.surfaceBorder,
+    borderColor: t.colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -82,14 +85,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   tokenBadge: {
-    backgroundColor: Colors.surface,
+    backgroundColor: t.colors.surface,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
   },
   tokenText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
     fontWeight: '600',
     fontFamily: 'monospace',
   },
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
   pumpName: {
     fontSize: Typography.fontSize.md,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: t.colors.text,
     marginBottom: Spacing.sm,
   },
   footer: {
@@ -123,18 +126,18 @@ const styles = StyleSheet.create({
   },
   slotTime: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
   },
   dateRow: {
     flex: 1,
   },
   dateText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textMuted,
+    color: t.colors.textMuted,
   },
   arrow: {
     fontSize: Typography.fontSize.xl,
-    color: Colors.primary,
+    color: t.colors.brandText,
     marginTop: -2,
   },
 });

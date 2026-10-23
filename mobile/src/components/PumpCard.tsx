@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
+import { Typography, Spacing, BorderRadius, Shadow } from '../config/theme';
 import FuelQualityBadge from './FuelQualityBadge';
+import { useTheme, type Theme } from '../theme';
 // Legacy component — kept for compatibility with old HomeScreen usage
 // Uses old pump API shape (availability, location, distance, queue)
 interface OldPump {
@@ -28,12 +29,14 @@ export default function PumpCard({
   totalSlots,
   availableSlots,
 }: PumpCardProps) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const getQueueColor = () => {
     switch (pump.availability) {
-      case 'HIGH': return Colors.success;
-      case 'MEDIUM': return Colors.warning;
-      case 'LOW': return Colors.error;
-      default: return Colors.textMuted;
+      case 'HIGH': return t.colors.successText;
+      case 'MEDIUM': return t.colors.warningText;
+      case 'LOW': return t.colors.dangerText;
+      default: return t.colors.textMuted;
     }
   };
 
@@ -79,21 +82,21 @@ export default function PumpCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (t: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: t.colors.surfaceRaised,
     borderRadius: BorderRadius.lg,
     padding: Spacing.base,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.surfaceBorder,
+    borderColor: t.colors.border,
   },
   highlighted: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(0,212,170,0.06)',
+    borderColor: t.colors.brand,
+    backgroundColor: t.colors.brandTint,
   },
   bestBadge: {
-    backgroundColor: 'rgba(0,212,170,0.15)',
+    backgroundColor: t.colors.brandTint,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
@@ -102,7 +105,7 @@ const styles = StyleSheet.create({
   },
   bestText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.primary,
+    color: t.colors.brandText,
     fontWeight: '700',
   },
   row: {
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: t.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -128,12 +131,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: Typography.fontSize.base,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: t.colors.text,
     marginBottom: 2,
   },
   location: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
   },
   rightSection: {
     alignItems: 'flex-end',
@@ -142,11 +145,11 @@ const styles = StyleSheet.create({
   },
   distance: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
   },
   arrow: {
     fontSize: Typography.fontSize.xl,
-    color: Colors.primary,
+    color: t.colors.brandText,
     marginTop: -2,
   },
   footer: {
@@ -164,18 +167,18 @@ const styles = StyleSheet.create({
   },
   queueLabel: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
+    color: t.colors.textSecondary,
   },
   slotBadge: {
     marginLeft: 'auto',
-    backgroundColor: Colors.infoBg,
+    backgroundColor: t.colors.infoTint,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
   },
   slotText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.info,
+    color: t.colors.infoText,
     fontWeight: '600',
   },
 });
