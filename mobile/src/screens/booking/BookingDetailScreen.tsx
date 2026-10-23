@@ -17,6 +17,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { useTheme, type Theme } from '../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RateSheet from '../../components/RateSheet';
+import { classifyBooking } from '../../utils/bookingStatus';
 import { StarsDisplay } from '../../components/StarRating';
 import { ratingService, type Eligibility } from '../../services/rating.service';
 
@@ -30,6 +31,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [elig, setElig] = useState<Eligibility | null>(null);
+  const [eligFailed, setEligFailed] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
   const loadEligibility = async (b: any) => {
     if (b?.status !== 'arrived') return;
     try {
+      setEligFailed(false);
       const e = await ratingService.eligibility(bookingId);
       setElig(e);
       if (e.eligible && !e.rating) {
@@ -51,7 +54,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
         }
       }
     } catch {
-      // rating card simply stays hidden if eligibility cannot be loaded
+      setEligFailed(true); // shown as a retry card below instead of hiding the option
     }
   };
 
@@ -147,7 +150,7 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
               styles.statusText,
               isAwaitingApproval ? styles.statusTextAmber : isActive ? styles.statusTextPending : isCancelled ? styles.statusTextCancelled : styles.statusTextCompleted,
             ]}>
-              {isAwaitingApproval ? 'PENDING APPROVAL' : status.toUpperCase()}
+              {classifyBooking(booking).label.toUpperCase()}
             </Text>
           </View>
         </View>
@@ -190,6 +193,16 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
             <Text style={styles.qrSubtitle}>Station owner will scan this to verify your booking.</Text>
           </View>
         )}
+
+        {status === 'arrived' && eligFailed ? (
+          <View style={styles.rateCard}>
+            <Text style={styles.rateTitle}>Rate this pump</Text>
+            <Text style={styles.rateSub}>We could not check your rating right now.</Text>
+            <TouchableOpacity style={styles.rateBtnGhost} onPress={() => loadEligibility(booking)} accessibilityRole="button">
+              <Text style={styles.rateBtnGhostText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {status === 'arrived' && elig?.eligible ? (
           <View style={styles.rateCard}>

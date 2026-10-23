@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, type Theme } from '../../theme';
 import { ratingService, type PumpReviews } from '../../services/rating.service';
@@ -18,16 +18,22 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (pull = false) => {
+    if (pull) setRefreshing(true);
+    else setLoading(true);
     setError(false);
+    setErrorMsg(null);
     try {
       setData(await ratingService.pumpReviews(pumpId, 0));
-    } catch {
+    } catch (e: any) {
       setError(true);
+      setErrorMsg(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [pumpId]);
 
@@ -66,7 +72,8 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
         <View style={styles.center}>
           <MaterialCommunityIcons name="wifi-off" size={28} color={t.colors.textMuted} />
           <Text style={styles.muted}>Couldn't load reviews.</Text>
-          <TouchableOpacity style={styles.retry} onPress={load} accessibilityRole="button">
+          {errorMsg ? <Text style={styles.muted}>{errorMsg}</Text> : null}
+          <TouchableOpacity style={styles.retry} onPress={() => load()} accessibilityRole="button">
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -79,6 +86,7 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
           renderItem={({ item }) => <ReviewRow item={item} />}
           onEndReached={more}
           onEndReachedThreshold={0.4}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={t.colors.brandText} colors={[t.colors.brand]} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <MaterialCommunityIcons name="star-outline" size={28} color={t.colors.textMuted} />

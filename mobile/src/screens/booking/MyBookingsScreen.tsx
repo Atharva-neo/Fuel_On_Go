@@ -13,17 +13,15 @@ import { useAuthStore } from '../../store/authStore';
 import { ChevronRightIcon, CalendarIcon } from '../../components/ui/Icons';
 import { useTheme, type Theme } from '../../theme';
 import BookingRateAction from '../../components/BookingRateAction';
+import { bookingsForTab, classifyBooking } from '../../utils/bookingStatus';
 
 
 type TabType = 'upcoming' | 'completed' | 'cancelled';
 
-// DB statuses: pending (awaiting pump-owner approval), confirmed, arrived,
-// no_show, cancelled, rejected
-function statusMeta(status: string) {
-  if (status === 'pending') return { label: 'Pending Approval', badge: 'amber' as const };
-  if (status === 'confirmed' || status === 'arrived') return { label: status, badge: 'green' as const };
-  if (status === 'cancelled' || status === 'rejected') return { label: status, badge: 'red' as const };
-  return { label: status, badge: 'blue' as const };
+// Which tab a booking belongs to (and its label) comes from one tested function: see utils/bookingStatus.ts.
+function statusMeta(item: any) {
+  const c = classifyBooking(item);
+  return { label: c.label, badge: (c.tone === 'neutral' ? 'blue' : c.tone) as 'green' | 'amber' | 'red' | 'blue' };
 }
 
 export default function MyBookingsScreen({ navigation }: any) {
@@ -56,17 +54,10 @@ export default function MyBookingsScreen({ navigation }: any) {
     }, [fetchBookings])
   );
 
-  // 'upcoming' shows everything not yet resolved (pending approval, confirmed,
-  // arrived), 'completed' shows arrived+no_show, 'cancelled' shows
-  // cancelled+rejected
-  const filteredBookings = bookings.filter((b) => {
-    if (activeTab === 'upcoming') return b.status === 'pending' || b.status === 'confirmed' || b.status === 'arrived';
-    if (activeTab === 'completed') return b.status === 'arrived' || b.status === 'no_show';
-    return b.status === 'cancelled' || b.status === 'rejected';
-  });
+  const filteredBookings = bookingsForTab(bookings, activeTab);
 
   const renderBooking = ({ item }: { item: any }) => {
-    const meta = statusMeta(item.status);
+    const meta = statusMeta(item);
 
     return (
       <TouchableOpacity

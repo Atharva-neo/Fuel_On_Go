@@ -64,3 +64,22 @@ export function toggleTag(tags: string[], id: string): string[] {
   if (tags.includes(id)) return tags.filter((t) => t !== id);
   return tags.length >= MAX_TAGS ? tags : [...tags, id];
 }
+
+export type RateActionState = 'hidden' | 'rate' | 'edit' | 'rated';
+
+/**
+ * What the rating row on a booking card shows.
+ *  hidden - not eligible (not a completed visit, own pump, ...): no actionable button
+ *  rate   - eligible and not yet rated (also when the eligibility check failed on a completed visit)
+ *  edit   - already rated and still editable
+ *  rated  - already rated, read-only (no second submission is offered)
+ */
+export function rateActionState(
+  elig: { eligible: boolean; rating: { editable: boolean } | null } | null,
+  checkFailed = false
+): RateActionState {
+  if (!elig) return checkFailed ? 'rate' : 'hidden';
+  if (!elig.eligible) return 'hidden';
+  if (!elig.rating) return 'rate';
+  return elig.rating.editable ? 'edit' : 'rated';
+}

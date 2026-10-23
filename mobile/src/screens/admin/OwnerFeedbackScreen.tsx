@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +30,8 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
   const [data, setData] = useState<PumpReviews | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [reporting, setReporting] = useState<ReviewItem | null>(null);
@@ -36,9 +39,11 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (pull = false) => {
+    if (pull) setRefreshing(true);
+    else setLoading(true);
     setError(false);
+    setErrorMsg(null);
     try {
       let id = pumpId;
       if (!id) {
@@ -51,10 +56,13 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
         setPumpId(id);
       }
       setData(await ratingService.ownerFeedback(id, 0));
-    } catch {
+    } catch (e: any) {
+      // A failed request is an error state with the real reason; it is never shown as "no reviews".
       setError(true);
+      setErrorMsg(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [pumpId]);
 
@@ -115,7 +123,8 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
         <View style={styles.center}>
           <MaterialCommunityIcons name="wifi-off" size={28} color={t.colors.textMuted} />
           <Text style={styles.muted}>Couldn't load feedback.</Text>
-          <TouchableOpacity style={styles.retry} onPress={load} accessibilityRole="button">
+          {errorMsg ? <Text style={styles.hint}>{errorMsg}</Text> : null}
+          <TouchableOpacity style={styles.retry} onPress={() => load()} accessibilityRole="button">
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -126,6 +135,7 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
           contentContainerStyle={{ padding: 16, gap: 10 }}
           onEndReached={more}
           onEndReachedThreshold={0.4}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={t.colors.brandText} colors={[t.colors.brand]} />}
           ListHeaderComponent={
             <View style={{ gap: 12 }}>
               <RatingSummaryCard data={data} />

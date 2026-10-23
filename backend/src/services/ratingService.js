@@ -60,8 +60,12 @@ function createRatingService({ store, now = () => new Date() }) {
   async function eligibility({ userId, bookingId }) {
     const booking = await store.getBooking(bookingId);
     if (!booking || booking.user_id !== userId) throw new RatingError(404, 'BOOKING_NOT_FOUND', 'Booking not found');
-    const pump = await store.getPump(booking.pump_id);
-    const existing = await store.getRatingByBooking(bookingId);
+    const pump = await (store.getPumpOwner ? store.getPumpOwner(booking.pump_id) : store.getPump(booking.pump_id));
+    // If ratings are not installed yet there is simply no existing rating; submitting then reports the setup problem.
+    const existing = await store.getRatingByBooking(bookingId).catch((e) => {
+      if (e && e.code === 'RATINGS_NOT_MIGRATED') return null;
+      throw e;
+    });
     let reason = null;
     if (booking.status !== 'arrived') reason = 'NOT_COMPLETED';
     else if (pump && pump.owner_id && pump.owner_id === userId) reason = 'OWN_PUMP';

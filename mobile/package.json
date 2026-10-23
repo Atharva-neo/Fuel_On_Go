@@ -14,6 +14,7 @@
     "test:colors": "node --no-warnings --test scripts/noHardcodedColors.test.mjs",
     "test:ratings": "node --no-warnings --test scripts/ratings.test.mjs",
     "test:schedule": "node --no-warnings --test scripts/schedule.test.mjs",
+    "test:bookings": "node --no-warnings --test scripts/bookingStatus.test.mjs",
     "test:location": "node --no-warnings --test scripts/location.test.mjs"
   },
   "dependencies": {

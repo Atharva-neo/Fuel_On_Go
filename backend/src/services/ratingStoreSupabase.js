@@ -51,6 +51,11 @@ function createSupabaseRatingStore(supabase) {
       return ok(await supabase.from('pumps').select('id, owner_id, rating_avg, rating_count').eq('id', id).maybeSingle());
     },
 
+    // Eligibility only needs the owner; it must not depend on the new aggregate columns.
+    async getPumpOwner(id) {
+      return ok(await supabase.from('pumps').select('id, owner_id').eq('id', id).maybeSingle());
+    },
+
     async getRatingByBooking(bookingId) {
       return ok(await supabase.from('pump_ratings').select('*').eq('booking_id', bookingId).maybeSingle());
     },
@@ -58,13 +63,15 @@ function createSupabaseRatingStore(supabase) {
     async listRatings(pumpId, { limit, offset, includeHidden }) {
       let q = supabase
         .from('pump_ratings')
-        .select('id, rating, review, tags, status, edited_count, created_at, updated_at, users(name)')
+        // pump_ratings has TWO foreign keys to users (user_id and hidden_by), so the embed must name one;
+        // a bare users(name) fails with PostgREST PGRST201 "more than one relationship".
+        .select('id, rating, review, tags, status, edited_count, created_at, updated_at, reviewer:users!pump_ratings_user_id_fkey(name)')
         .eq('pump_id', pumpId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
       if (!includeHidden) q = q.eq('status', 'visible');
       const rows = ok(await q) || [];
-      const mapped = rows.map(({ users, ...r }) => ({ ...r, user_name: users?.name || null }));
+      const mapped = rows.map(({ reviewer, ...r }) => ({ ...r, user_name: reviewer?.name || null }));
 
       if (includeHidden && mapped.length) {
         const reports = ok(
