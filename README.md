@@ -1,3 +1,10 @@
+<p align="center">
+  <img src="logo.jpeg" alt="fuel on go logo" width="200"/>
+  <br>
+  <em>Fuel On Go</em>
+</p>
+
+
 # Fuel on Go
 
 Slot booking for CNG pumps. Drivers find a nearby station, reserve a 30-minute slot and show a QR code on arrival; pump owners approve requests, scan the QR to check people in, and manage their schedule.
