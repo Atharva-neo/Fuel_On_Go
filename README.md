@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpeg" alt="fuel on go logo" width="300" style="border-radius: 16px;"/>
+  <img src="logo-new.jpeg" alt="fuel on go logo" width="300" style="border-radius: 16px;"/>
   <br>
   
 </p>
