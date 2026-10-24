@@ -269,17 +269,6 @@ GET    /api/admin/bookings         # Get filtered bookings
 }
 ```
 
----
-
-## 🚀 Deployment
-
-### One-Click Deploy Options
-
-- **Frontend**: Deploy to [Vercel](https://vercel.com) (Free tier available)
-- **Backend**: Deploy to [Render](https://render.com) (Free tier available)
-- **Database**: Use [MongoDB Atlas](https://mongodb.com/cloud/atlas) (Free M0 cluster)
-
-👉 **[Complete deployment guide →](./DEPLOYMENT.md)**
 
 ---
 
