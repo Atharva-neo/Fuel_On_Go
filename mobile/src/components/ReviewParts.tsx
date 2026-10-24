@@ -5,11 +5,13 @@ import { useTheme, type Theme } from '../theme';
 import { StarsDisplay } from './StarRating';
 import { formatRatingSummary, tagLabel } from '../ratings/ratingModel';
 import type { PumpReviews, ReviewItem } from '../services/rating.service';
+import { useT } from '../i18n';
 
 export function RatingSummaryCard({ data }: { data: Pick<PumpReviews, 'average' | 'count' | 'distribution'> }) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
-  const s = formatRatingSummary(data.average, data.count);
+  const s = fmt.rating(data.average, data.count);
   const max = Math.max(1, ...[1, 2, 3, 4, 5].map((n) => data.distribution?.[String(n) as '1'] ?? 0));
 
   return (
@@ -17,7 +19,7 @@ export function RatingSummaryCard({ data }: { data: Pick<PumpReviews, 'average' 
       <View style={styles.left}>
         <Text style={styles.big}>{s.hasRating ? s.average!.toFixed(1) : '--'}</Text>
         <StarsDisplay average={s.hasRating ? s.average! : null} size={16} />
-        <Text style={styles.count}>{s.hasRating ? `${data.count} ${data.count === 1 ? 'review' : 'reviews'}` : 'No reviews yet'}</Text>
+        <Text style={styles.count}>{s.hasRating ? tr('rating.reviewCount', { count: data.count }) : tr('rating.noReviews')}</Text>
       </View>
       <View style={styles.bars}>
         {[5, 4, 3, 2, 1].map((n) => {
@@ -40,20 +42,21 @@ export function RatingSummaryCard({ data }: { data: Pick<PumpReviews, 'average' 
 
 export function ReviewRow({ item, footer }: { item: ReviewItem; footer?: React.ReactNode }) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
-  const date = new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = fmt.date(String(item.created_at).slice(0, 10));
   return (
-    <View style={[styles.row, item.status === 'hidden' && { opacity: 0.6 }]} accessible accessibilityLabel={`${item.rating} stars by ${item.reviewer}`}>
+    <View style={[styles.row, item.status === 'hidden' && { opacity: 0.6 }]} accessible accessibilityLabel={tr('rating.starsBy', { count: item.rating, name: item.reviewer })}>
       <View style={styles.rowTop}>
         <StarsDisplay average={item.rating} size={14} />
         <Text style={styles.reviewer}>{item.reviewer}</Text>
-        <Text style={styles.date}>{date}{item.edited ? ' (edited)' : ''}</Text>
+        <Text style={styles.date}>{date}{item.edited ? ` ${tr('rating.edited')}` : ''}</Text>
       </View>
       {item.tags?.length ? (
         <View style={styles.tags}>
           {item.tags.map((id) => (
             <View key={id} style={styles.tag}>
-              <Text style={styles.tagText}>{tagLabel(id)}</Text>
+              <Text style={styles.tagText}>{tr(`rating.tag.${id}`)}</Text>
             </View>
           ))}
         </View>
@@ -61,9 +64,9 @@ export function ReviewRow({ item, footer }: { item: ReviewItem; footer?: React.R
       {item.review ? <Text style={styles.body}>{item.review}</Text> : null}
       <View style={styles.meta}>
         <MaterialCommunityIcons name="check-decagram-outline" size={13} color={t.colors.brandText} />
-        <Text style={styles.metaText}>Verified visit</Text>
-        {item.status === 'hidden' ? <Text style={[styles.metaText, { color: t.colors.warningText }]}>  Hidden after moderation</Text> : null}
-        {item.report_status === 'open' ? <Text style={[styles.metaText, { color: t.colors.infoText }]}>  Reported - under review</Text> : null}
+        <Text style={styles.metaText}>{tr('rating.verifiedVisit')}</Text>
+        {item.status === 'hidden' ? <Text style={[styles.metaText, { color: t.colors.warningText }]}>  {tr('rating.hidden')}</Text> : null}
+        {item.report_status === 'open' ? <Text style={[styles.metaText, { color: t.colors.infoText }]}>  {tr('rating.reportedReview')}</Text> : null}
       </View>
       {footer}
     </View>

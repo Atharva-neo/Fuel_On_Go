@@ -10,8 +10,10 @@ import {
 } from '../../location';
 import { LOCATION_CONFIG } from '../../location/config';
 import { isValidCoord, movedMoreThan } from '../../location/geo';
+import { translate } from '../../i18n';
 import { useTheme, type Theme } from '../../theme';
 import { LEAFLET_HEAD, LEAFLET_SCRIPT, MAP_BASE_CSS, MAP_USER_AGENT, cssVarsBlock, mapBootJs, mapThemeVars } from '../../components/mapKit';
+import { useT } from '../../i18n';
 
 
 // The page is built ONCE (pump only). The user's position and the route are
@@ -36,7 +38,7 @@ function html(pumpLat: number, pumpLng: number, t: Theme) {
       html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--marker-pump);border:2px solid var(--marker-ring);box-shadow:0 2px 7px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center"><span style="width:8px;height:8px;border-radius:50%;background:var(--pin-dot)"></span></div>',
       className: '', iconSize: [30, 30], iconAnchor: [15, 30]
     });
-    L.marker(pump, { icon: pumpIcon }).addTo(map).bindPopup('Pump');
+    L.marker(pump, { icon: pumpIcon }).addTo(map).bindPopup(${JSON.stringify(translate('nav.markerPump'))});
     var userMarker = null, circle = null, line = null, fitted = false, userPos = null;
 
     function icon(live) {
@@ -51,7 +53,7 @@ function html(pumpLat: number, pumpLng: number, t: Theme) {
       if (lat === null) { if (userMarker) { map.removeLayer(userMarker); userMarker = null; } if (circle) { map.removeLayer(circle); circle = null; } userPos = null; return; }
       userPos = [lat, lng];
       if (userMarker) { userMarker.setLatLng(userPos); userMarker.setIcon(icon(live)); }
-      else userMarker = L.marker(userPos, { icon: icon(live), zIndexOffset: 1000 }).addTo(map).bindPopup('You');
+      else userMarker = L.marker(userPos, { icon: icon(live), zIndexOffset: 1000 }).addTo(map).bindPopup(${JSON.stringify(translate('nav.markerYou'))});
       if (live && acc > 0) {
         if (circle) { circle.setLatLng(userPos); circle.setRadius(acc); }
         else circle = L.circle(userPos, { radius: acc, color: '#89b4fa', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
@@ -76,10 +78,11 @@ function html(pumpLat: number, pumpLng: number, t: Theme) {
 
 export default function NavigationMapScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const pumpLat = Number(route.params?.lat);
   const pumpLng = Number(route.params?.lng);
-  const pumpName = route.params?.pumpName || 'Pump';
+  const pumpName = route.params?.pumpName || tr('nav.pumpDefault');
   const address = route.params?.address || '';
 
   // Same shared location the rest of the app uses; no private GPS request here.
@@ -166,7 +169,7 @@ export default function NavigationMapScreen({ route, navigation }: any) {
     }
   };
 
-  const problem = describeLocationProblem(dev);
+  const problem = describeLocationProblem(dev, tr);
   const noFix = !fix;
 
   return (
@@ -193,13 +196,13 @@ export default function NavigationMapScreen({ route, navigation }: any) {
       {routing || (noFix && !dev.error) ? (
         <View style={styles.loadingPill}>
           <ActivityIndicator size="small" color={t.colors.infoText} />
-          <Text style={styles.loadingText}>{noFix ? 'Getting your location...' : 'Finding route...'}</Text>
+          <Text style={styles.loadingText}>{noFix ? tr('nav.gettingLocation') : tr('nav.findingRoute')}</Text>
         </View>
       ) : null}
 
       {tilesFailed ? (
         <View style={styles.loadingPill}>
-          <Text style={styles.loadingText}>Map tiles could not be loaded.</Text>
+          <Text style={styles.loadingText}>{tr('nav.tilesFailed')}</Text>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={() => {
@@ -207,7 +210,7 @@ export default function NavigationMapScreen({ route, navigation }: any) {
               inject('window.retryTiles()');
             }}
           >
-            <Text style={{ color: t.colors.brandText, fontWeight: '800', fontSize: 12 }}>Retry</Text>
+            <Text style={{ color: t.colors.brandText, fontWeight: '800', fontSize: 12 }}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -222,25 +225,25 @@ export default function NavigationMapScreen({ route, navigation }: any) {
               onPress={() => (dev.error === 'permission_blocked' ? openLocationSettings() : locationController.retry())}
             >
               <Text style={{ color: t.colors.infoText, fontWeight: '800' }}>
-                {dev.error === 'permission_blocked' ? 'Settings' : 'Retry'}
+                {dev.error === 'permission_blocked' ? tr('home.openSettings') : tr('common.retry')}
               </Text>
             </TouchableOpacity>
           </View>
         ) : null}
         {routeInfo ? (
           <Text style={styles.routeMeta}>
-            {routeInfo.distanceKm.toFixed(1)} km - ~{Math.round(routeInfo.durationMin)} min by road
+            {tr('nav.routeMeta', { km: fmt.distance(routeInfo.distanceKm), min: fmt.number(Math.round(routeInfo.durationMin)) })}
           </Text>
         ) : routeFailed ? (
           <Text style={[styles.routeMeta, { color: t.colors.warningText }]}>
-            Road route unavailable. The dashed line is a straight line, not the road distance.
+            {tr('nav.routeFailed')}
           </Text>
         ) : null}
         <TouchableOpacity style={styles.btn} onPress={openMaps}>
-          <Text style={styles.btnText}>Open in Maps</Text>
+          <Text style={styles.btnText}>{tr('nav.openMaps')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnGhost} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnGhostText}>Close</Text>
+          <Text style={styles.btnGhostText}>{tr('common.close')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -39,7 +39,7 @@ import {
   useLocationSession,
 } from '../../location';
 import { LOCATION_CONFIG } from '../../location/config';
-import { formatStraightLine, movedMoreThan, rankPumps } from '../../location/geo';
+import { movedMoreThan, rankPumps } from '../../location/geo';
 import { createNearbyLoader, type NearbyState } from '../../location/nearbyLoader';
 import * as camera from '../../location/cameraPolicy';
 import {
@@ -52,10 +52,11 @@ import {
   pickSnapIndex,
   resolveDrag,
 } from '../../utils/bottomSheetMath';
-import ThemeToggle from '../../components/ThemeToggle';
+import OverflowMenu from '../../components/OverflowMenu';
 import RatingBadge from '../../components/RatingBadge';
 import { useRatingEvents } from '../../ratings/ratingEvents';
 import { useTheme, type Theme } from '../../theme';
+import { translate, useT } from '../../i18n';
 
 type SearchResult =
   | {
@@ -83,8 +84,6 @@ type SearchResult =
       pumpId: string;
     };
 
-// Straight-line distance from the device; never presented as road distance.
-const formatDistance = formatStraightLine;
 
 function buildBbox(raw: [string, string, string, string]): LocationBbox {
   return {
@@ -107,6 +106,7 @@ function PumpPopup({
   onNavigate: () => void;
 }) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const dragY = useRef(new Animated.Value(0)).current;
 
@@ -149,10 +149,10 @@ function PumpPopup({
       </View>
       <View style={styles.popupActions}>
         <TouchableOpacity style={styles.popupPrimary} onPress={onBook}>
-          <Text style={styles.popupPrimaryText}>View & Book</Text>
+          <Text style={styles.popupPrimaryText}>{tr('home.viewAndBook')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.popupSecondary} onPress={onNavigate}>
-          <Text style={styles.popupSecondaryText}>Navigate</Text>
+          <Text style={styles.popupSecondaryText}>{tr('home.navigate')}</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -169,6 +169,7 @@ const PumpRow = React.memo(function PumpRow({
   onPumpTap: (pump: Pump) => void;
 }) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   return (
     <TouchableOpacity style={styles.pumpCard} onPress={() => onPumpTap(pump)}>
@@ -182,17 +183,17 @@ const PumpRow = React.memo(function PumpRow({
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <LocationIcon size={12} color={t.colors.textSecondary} />
-            <Text style={styles.metaText}>{formatDistance(pump.distance_km)}</Text>
+            <Text style={styles.metaText}>{fmt.distance(pump.distance_km)}</Text>
           </View>
           <RatingBadge average={pump.rating_avg} count={pump.rating_count} />
-          <Text style={styles.metaText}>₹{pump.cng_price_per_kg}/kg</Text>
+          <Text style={styles.metaText}>{tr('common.pricePerKg', { price: fmt.rupees(Number(pump.cng_price_per_kg), 0) })}</Text>
           <Text style={[styles.metaText, { color: t.colors.successText, fontWeight: '700' }]}>
-            {pump.available_slots_today ?? 0} slots
+            {tr('home.slots', { count: pump.available_slots_today ?? 0 })}
           </Text>
         </View>
       </View>
       <TouchableOpacity style={styles.bookBtn} onPress={() => onBook(pump)}>
-        <Text style={styles.bookBtnText}>Book</Text>
+        <Text style={styles.bookBtnText}>{tr('home.book')}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -238,6 +239,7 @@ function NearbyBottomSheet({
   listBottomPadding: number;
 }) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const tops = useMemo(() => computeSheetTops(containerH, topInset), [containerH, topInset]);
   const topsRef = useRef(tops);
@@ -368,7 +370,7 @@ function NearbyBottomSheet({
 
   if (!containerH) return null;
 
-  const title = loading ? 'Finding CNG pumps…' : `${pumps.length} CNG pumps nearby`;
+  const title = loading ? tr('home.finding') : tr('home.pumpsNearby', { count: pumps.length });
 
   return (
     <PanGestureHandler
@@ -389,11 +391,11 @@ function NearbyBottomSheet({
           onPress={() => snapTo(nextSnapOnTap(snapIndexRef.current))}
           accessibilityRole="adjustable"
           accessibilityLabel={title}
-          accessibilityHint="Swipe up or down to expand or collapse the pump list"
-          accessibilityValue={{ text: ['Expanded', 'Half open', 'Preview', 'Collapsed'][snapIndex] }}
+          accessibilityHint={tr('home.sheetHint')}
+          accessibilityValue={{ text: [tr('home.snap.expanded'), tr('home.snap.half'), tr('home.snap.preview'), tr('home.snap.collapsed')][snapIndex] }}
           accessibilityActions={[
-            { name: 'increment', label: 'Expand' },
-            { name: 'decrement', label: 'Collapse' },
+            { name: 'increment', label: tr('home.expand') },
+            { name: 'decrement', label: tr('home.collapse') },
           ]}
           onAccessibilityAction={(e) => {
             if (e.nativeEvent.actionName === 'increment') snapTo(Math.max(SNAP_EXPANDED, snapIndexRef.current - 1));
@@ -428,14 +430,14 @@ function NearbyBottomSheet({
                 <ActivityIndicator style={{ marginTop: 24 }} color={t.colors.infoText} />
               ) : error ? (
                 <View style={styles.sheetState}>
-                  <Text style={styles.sheetStateText}>Couldn't load nearby pumps.</Text>
+                  <Text style={styles.sheetStateText}>{tr('home.loadFailed')}</Text>
                   <TouchableOpacity style={styles.sheetRetry} onPress={onRetry}>
-                    <Text style={styles.sheetRetryText}>Retry</Text>
+                    <Text style={styles.sheetRetryText}>{tr('common.retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.sheetState}>
-                  <Text style={styles.sheetStateText}>No CNG pumps found nearby.</Text>
+                  <Text style={styles.sheetStateText}>{tr('home.noPumps')}</Text>
                 </View>
               )
             }
@@ -448,6 +450,7 @@ function NearbyBottomSheet({
 
 export default function HomeScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   // Live device position: one shared session for the whole app. This screen
   // is focused => GPS runs; blurred/background => it is released.
@@ -600,11 +603,11 @@ export default function HomeScreen({ navigation }: any) {
 
   // ── header text: honest about what it is showing ────────────────────────
   const areaName = dev.areaState.area?.name;
-  const city = browsing ? mCity : areaName ?? (dev.fix ? 'Current location' : dev.error ? 'Location unavailable' : 'Locating...');
+  const city = browsing ? mCity : areaName ?? (dev.fix ? tr('home.currentLocation') : dev.error ? tr('home.locationUnavailable') : tr('home.locating'));
   const displayName = browsing
     ? mDisplay
-    : dev.areaState.area?.displayName ?? (dev.fix && dev.fix.source === 'cached' ? 'Approximate (last known)' : 'Using your device location');
-  const problem = browsing ? null : describeLocationProblem(dev);
+    : dev.areaState.area?.displayName ?? (dev.fix && dev.fix.source === 'cached' ? tr('home.approximate') : tr('home.usingDevice'));
+  const problem = browsing ? null : describeLocationProblem(dev, tr);
   const areaFailed = !browsing && !problem && dev.fix && dev.areaState.status === 'failed';
 
   useEffect(() => {
@@ -628,7 +631,7 @@ export default function HomeScreen({ navigation }: any) {
         const places: SearchResult[] = (Array.isArray(data) ? data : []).map((item: any) => ({
           type: 'place',
           id: String(item.place_id),
-          title: item.display_name?.split(',')?.[0] ?? 'Selected place',
+          title: item.display_name?.split(',')?.[0] ?? translate('home.selectedPlace'),
           subtitle: item.display_name ?? '',
           lat: Number(item.lat),
           lng: Number(item.lon),
@@ -735,8 +738,8 @@ export default function HomeScreen({ navigation }: any) {
       {
         type: 'device',
         id: 'device',
-        title: 'Use my current location',
-        subtitle: dev.areaState.area?.displayName ?? (dev.fix ? 'Your GPS position' : 'Location not available yet'),
+        title: tr('home.useMyLocation'),
+        subtitle: dev.areaState.area?.displayName ?? (dev.fix ? tr('home.gpsPosition') : tr('home.locationNotReady')),
       },
     ];
     pumps.slice(0, 3).forEach((pump) =>
@@ -744,12 +747,12 @@ export default function HomeScreen({ navigation }: any) {
         type: 'pump',
         id: `pump-${pump.id}`,
         title: pump.name,
-        subtitle: `${formatDistance(pump.distance_km)} · ${pump.address}`,
+        subtitle: `${fmt.distance(pump.distance_km)} · ${pump.address}`,
         pumpId: pump.id,
       })
     );
     return list;
-  }, [pumps, dev.fix, dev.areaState.area]);
+  }, [pumps, dev.fix, dev.areaState.area, tr, fmt]);
 
   return (
     <View
@@ -775,41 +778,32 @@ export default function HomeScreen({ navigation }: any) {
         }}
       />
 
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.locationPill} onPress={() => setSearchVisible(true)}>
-          <View style={styles.locationTitleRow}>
-            <LocationIcon size={12} color={t.colors.text} />
-            <Text style={styles.locationText}>{city}</Text>
-          </View>
-          <Text style={styles.locationSub} numberOfLines={1}>
-            {displayName}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchVisible(true)}>
-          <SearchIcon size={20} color={t.colors.text} />
-        </TouchableOpacity>
-
-        <ThemeToggle size={20} style={{ backgroundColor: t.colors.mapControlBg, borderColor: t.colors.border }} />
-
+      <View style={[styles.topBar, { top: insets.top + 8 }]}>
         <TouchableOpacity
-          style={styles.searchBtn}
-          accessibilityLabel="Log out"
-          onPress={() =>
-            Alert.alert('Logout', 'Are you sure you want to logout?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Logout', style: 'destructive', onPress: () => useAuthStore.getState().logout() },
-            ])
-          }
+          style={styles.locationPill}
+          onPress={() => setSearchVisible(true)}
+          accessibilityRole="search"
+          accessibilityLabel={tr('home.searchLabel')}
         >
-          <MaterialCommunityIcons name="logout" size={18} color={t.colors.text} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.locationTitleRow}>
+              <LocationIcon size={12} color={t.colors.text} />
+              <Text style={styles.locationText} numberOfLines={1}>{city}</Text>
+            </View>
+            <Text style={styles.locationSub} numberOfLines={1}>
+              {displayName}
+            </Text>
+          </View>
+          <SearchIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
+
+        <OverflowMenu offsetTop={8 + 46 + 6} />
       </View>
 
       {problem || areaFailed ? (
-        <View style={styles.locBanner}>
+        <View style={[styles.locBanner, { top: insets.top + 8 + 52 }]}>
           <Text style={styles.locBannerText} numberOfLines={2}>
-            {problem ?? "Couldn't detect your area."}
+            {problem ?? tr('home.areaFailed')}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -819,15 +813,16 @@ export default function HomeScreen({ navigation }: any) {
             }}
           >
             <Text style={styles.locBannerAction}>
-              {dev.error === 'permission_blocked' ? 'Settings' : 'Retry'}
+              {dev.error === 'permission_blocked' ? tr('home.openSettings') : tr('common.retry')}
             </Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
       <TouchableOpacity
-        style={styles.myLocBtn}
-        accessibilityLabel={browsing ? 'Use my current location' : 'Center map on my location'}
+        style={[styles.myLocBtn, { top: insets.top + 8 + 52 }]}
+        accessibilityRole="button"
+        accessibilityLabel={browsing ? tr('home.useMyLocation') : tr('home.centerMap')}
         onPress={goToMyLocation}
       >
         <MaterialCommunityIcons
@@ -878,13 +873,13 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.searchHeader}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search city, locality or pump"
+              placeholder={tr('home.searchPlaceholder')}
               value={searchText}
               onChangeText={setSearchText}
               autoFocus
             />
             <TouchableOpacity onPress={() => setSearchVisible(false)}>
-              <Text style={styles.cancel}>Cancel</Text>
+              <Text style={styles.cancel}>{tr('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -906,7 +901,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
               </TouchableOpacity>
             )}
-            ListEmptyComponent={<Text style={styles.empty}>No results</Text>}
+            ListEmptyComponent={<Text style={styles.empty}>{tr('home.noResults')}</Text>}
           />
         </View>
       </Modal>
@@ -930,6 +925,12 @@ const createStyles = (t: Theme) => StyleSheet.create({
     zIndex: 20,
   },
   locationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: t.colors.border,
     backgroundColor: t.colors.mapControlBg,
     borderRadius: 16,
     paddingHorizontal: 12,

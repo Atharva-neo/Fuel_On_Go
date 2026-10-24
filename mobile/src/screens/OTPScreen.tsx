@@ -11,12 +11,15 @@ import {
 } from 'react-native';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
+import { apiErrorMessage } from '../i18n/errors';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 const OTP_LENGTH = 6;
 
 export default function OTPScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const { phone, flow, name } = route.params || {};
   const [otp, setOtp] = useState(Array<string>(OTP_LENGTH).fill(''));
@@ -71,7 +74,7 @@ export default function OTPScreen({ route, navigation }: any) {
 
   const verify = async () => {
     if (otpCode.length !== OTP_LENGTH) {
-      setErrorText('Please enter complete OTP.');
+      setErrorText(tr('auth.otpIncomplete'));
       return;
     }
 
@@ -86,10 +89,10 @@ export default function OTPScreen({ route, navigation }: any) {
       if (flow === 'user' && isPumpOwner) {
         await logout();
         Alert.alert(
-          'Account Mismatch',
-          "This number is registered as a Pump Owner. Please use \"I'm a Pump Owner\" to login.",
+          tr('auth.accountMismatch'),
+          tr('auth.mismatchIsPumpOwner'),
           [{
-            text: 'OK',
+            text: tr('common.ok'),
             onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
           }]
         );
@@ -100,10 +103,10 @@ export default function OTPScreen({ route, navigation }: any) {
       if (flow === 'pump_owner' && !isPumpOwner) {
         await logout();
         Alert.alert(
-          'Account Mismatch',
-          "This number is registered as a Vehicle Owner. Please use \"I'm a Vehicle Owner\" to login.",
+          tr('auth.accountMismatch'),
+          tr('auth.mismatchIsVehicleOwner'),
           [{
-            text: 'OK',
+            text: tr('common.ok'),
             onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
           }]
         );
@@ -115,7 +118,7 @@ export default function OTPScreen({ route, navigation }: any) {
     } catch (error: any) {
       console.log('OTP VERIFY ERROR:', error?.response?.data || error?.message || error);
       setOtp(Array<string>(OTP_LENGTH).fill(''));
-      setErrorText(error?.response?.data?.error || error?.message || 'Invalid OTP');
+      setErrorText(apiErrorMessage(error, tr, 'auth.invalidOtp'));
       shakeError();
       inputRefs.current[0]?.focus();
     } finally {
@@ -131,24 +134,18 @@ export default function OTPScreen({ route, navigation }: any) {
       setErrorText('');
     } catch (error: any) {
       console.log('RESEND OTP ERROR:', error?.response?.data || error?.message || error);
-      Alert.alert(
-        'Unable to resend', 
-        error?.response?.data?.message || 
-        error?.response?.data?.error || 
-        error?.message || 
-        JSON.stringify(error)
-      );
+      Alert.alert(tr('auth.resendFailed'), apiErrorMessage(error, tr));
     }
   };
 
   return (
     <View style={styles.container}>
-      {name ? <Text style={styles.welcome}>Welcome back, {name}!</Text> : null}
-      <Text style={styles.title}>Enter OTP sent to {phone}</Text>
+      {name ? <Text style={styles.welcome}>{tr('auth.welcomeBack', { name })}</Text> : null}
+      <Text style={styles.title}>{tr('auth.otpSentTo', { phone })}</Text>
 
       {__DEV__ ? (
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>Demo Mode: OTP is 123456</Text>
+          <Text style={styles.bannerText}>{tr('auth.demoBanner')}</Text>
         </View>
       ) : null}
 
@@ -172,15 +169,15 @@ export default function OTPScreen({ route, navigation }: any) {
       {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
 
       <Text style={styles.countdown}>
-        {countdown > 0 ? `Resend OTP in 00:${String(countdown).padStart(2, '0')}` : "Didn't receive OTP?"}
+        {countdown > 0 ? tr('auth.resendCountdown', { seconds: String(countdown).padStart(2, '0') }) : tr('auth.didNotReceive')}
       </Text>
 
       <TouchableOpacity style={[styles.linkBtn, countdown > 0 && styles.linkBtnDisabled]} onPress={resendOtp}>
-        <Text style={[styles.linkText, countdown > 0 && styles.linkTextDisabled]}>Resend OTP</Text>
+        <Text style={[styles.linkText, countdown > 0 && styles.linkTextDisabled]}>{tr('auth.resendOtp')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.verifyBtn, verifying && styles.verifyBtnDisabled]} onPress={verify} disabled={verifying}>
-        {verifying ? <ActivityIndicator color={t.colors.text} /> : <Text style={styles.verifyText}>Verify OTP</Text>}
+        {verifying ? <ActivityIndicator color={t.colors.text} /> : <Text style={styles.verifyText}>{tr('auth.verifyOtp')}</Text>}
       </TouchableOpacity>
     </View>
   );

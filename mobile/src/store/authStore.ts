@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Validate token against the server
       const controller = new AbortController();
-      const validationTimeout = setTimeout(() => controller.abort(), 4000);
+      const validationTimeout = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch(`${API_URL}/auth/me`, {
           headers: {
@@ -125,7 +125,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       } catch (networkErr) {
         // Network unreachable — trust cached user so offline usage still works
-        console.warn('[AuthStore] Network error during token validation — using cache:', networkErr);
+        // Expected when offline or the server is slow to wake: handled below, so log quietly (a warn pops the dev overlay).
+        console.log('[AuthStore] Could not reach server to validate token, using cached session:', (networkErr as Error)?.message);
         try {
           const cachedUser: AppUser = JSON.parse(userStr);
           set({ token, user: cachedUser, isAuthenticated: true, loading: false });

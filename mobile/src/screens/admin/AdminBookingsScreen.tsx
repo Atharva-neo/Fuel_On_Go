@@ -7,12 +7,18 @@ import { adminService } from '../../services/admin.service';
 import { useTheme, type Theme } from '../../theme';
 import { useFocusEffect } from '@react-navigation/native';
 import { istDate } from '../../utils/schedule';
+import DropdownSelect from '../../components/DropdownSelect';
+import { apiErrorMessage } from '../../i18n/errors';
 import { approvalExpired } from '../../utils/approvalExpiry';
-import { STATUS_GROUPS, describeRange, historyParams, mergePage, shiftDay, type RangeMode, type StatusGroup } from '../../utils/historyFilter';
+import { STATUS_GROUPS, historyParams, mergePage, shiftDay, type RangeMode, type StatusGroup } from '../../utils/historyFilter';
+import { useT } from '../../i18n';
 
+
+const STATUS_IDS = ['pending', 'confirmed', 'arrived', 'no_show', 'cancelled', 'rejected'];
 
 export default function AdminBookingsScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const PAGE = 25;
   // Default: the COMPLETE history, newest visit first. (It used to open on a single day.)
@@ -41,7 +47,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
       setHasMore(page.has_more);
     } catch (e: any) {
       // A failed request is an error with a retry, never "no bookings".
-      setError(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
+      setError(apiErrorMessage(e, tr));
     } finally {
       setLoading(false);
     }
@@ -79,6 +85,19 @@ export default function AdminBookingsScreen({ navigation }: any) {
     return () => clearInterval(id);
   }, []);
   const pendingCount = bookings.filter((b) => b.status === 'pending').length;
+  const today = istDate(0);
+  const rangeLabel =
+    mode === 'all'
+      ? tr('history.rangeAll')
+      : mode === 'week'
+      ? tr('history.rangeWeek')
+      : date === today
+      ? tr('history.today', { date: fmt.date(date) })
+      : date === shiftDay(today, -1)
+      ? tr('history.yesterday', { date: fmt.date(date) })
+      : date === shiftDay(today, 1)
+      ? tr('history.tomorrow', { date: fmt.date(date) })
+      : fmt.date(date);
 
   const handleApprove = async (bookingId: string) => {
     setActingOn(bookingId);
@@ -87,8 +106,8 @@ export default function AdminBookingsScreen({ navigation }: any) {
       load();
     } catch (err: any) {
       Alert.alert(
-        err?.response?.data?.code === 'BOOKING_EXPIRED' ? 'Request expired' : 'Error',
-        err?.response?.data?.error || 'Could not approve booking.'
+        err?.response?.data?.code === 'BOOKING_EXPIRED' ? tr('owner.requestExpired') : tr('common.error'),
+        apiErrorMessage(err, tr, 'owner.approveFailed')
       );
       load(); // the server is the authority: show the booking as it now stands
     } finally {
@@ -97,10 +116,10 @@ export default function AdminBookingsScreen({ navigation }: any) {
   };
 
   const handleReject = (bookingId: string) => {
-    Alert.alert('Reject booking?', 'The slot will be freed up for other customers.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(tr('owner.rejectTitle'), tr('owner.rejectBody'), [
+      { text: tr('common.cancel'), style: 'cancel' },
       {
-        text: 'Reject',
+        text: tr('owner.reject'),
         style: 'destructive',
         onPress: async () => {
           setActingOn(bookingId);
@@ -108,7 +127,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
             await adminService.rejectBooking(bookingId);
             load();
           } catch (err: any) {
-            Alert.alert('Error', err?.response?.data?.error || 'Could not reject booking.');
+            Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'owner.rejectFailed'));
           } finally {
             setActingOn(null);
           }
@@ -127,12 +146,12 @@ export default function AdminBookingsScreen({ navigation }: any) {
 
   const handleNoShow = (bookingId: string) => {
     Alert.alert(
-      'Mark as no-show?',
-      'Confirm the customer never arrived. This lowers their trust score and cannot be undone by you.',
+      tr('owner.noShowTitle'),
+      tr('owner.noShowBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Confirm no-show',
+          text: tr('owner.noShowConfirm'),
           style: 'destructive',
           onPress: async () => {
             setActingOn(bookingId);
@@ -140,7 +159,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
               await adminService.markNoShow(bookingId);
               load();
             } catch (err: any) {
-              Alert.alert('Error', err?.response?.data?.error || 'Could not mark no-show.');
+              Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'owner.noShowFailed'));
             } finally {
               setActingOn(null);
             }
@@ -160,13 +179,13 @@ export default function AdminBookingsScreen({ navigation }: any) {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'text/csv',
-          dialogTitle: 'Export customer scan log',
+          dialogTitle: tr('history.exportTitle'),
         });
       } else {
-        Alert.alert('Saved', `File saved to ${file.uri}`);
+        Alert.alert(tr('history.savedTitle'), tr('history.savedBody', { uri: file.uri }));
       }
     } catch (err: any) {
-      Alert.alert('Export failed', err?.response?.data?.error || 'Could not export bookings.');
+      Alert.alert(tr('history.exportFailed'), apiErrorMessage(err, tr, 'history.exportFailedBody'));
     } finally {
       setExporting(false);
     }
@@ -177,16 +196,18 @@ export default function AdminBookingsScreen({ navigation }: any) {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.titleWithBadge}>
-            <Text style={styles.title}>Bookings</Text>
+            <Text style={styles.title}>{tr('history.title')}</Text>
             {pendingCount > 0 ? (
               <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount} pending</Text>
+                <Text style={styles.pendingBadgeText}>{tr('history.pendingBadge', { count: pendingCount })}</Text>
               </View>
             ) : null}
           </View>
           <TouchableOpacity
             style={styles.exportBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={tr('history.export')}
             onPress={handleExport}
             disabled={exporting}
           >
@@ -198,32 +219,33 @@ export default function AdminBookingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
         <View style={styles.chipRow}>
-          {([['all', 'All'], ['week', 'Last 7 days'], ['day', 'Single day']] as Array<[RangeMode, string]>).map(([m, label]) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.chip, mode === m && styles.chipActive]}
-              onPress={() => {
-                setMode(m);
-                if (m === 'day') setDate(istDate(0));
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === m }}
-            >
-              <Text style={[styles.chipText, mode === m && styles.chipTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+          <DropdownSelect
+            display={rangeLabel}
+            accessibilityLabel={tr('history.rangeLabel')}
+            title={tr('history.rangeLabel')}
+            value={mode}
+            onChange={(m: RangeMode) => {
+              setMode(m);
+              if (m === 'day') setDate(istDate(0));
+            }}
+            options={[
+              { value: 'all', label: tr('history.rangeAll') },
+              { value: 'week', label: tr('history.rangeWeek') },
+              { value: 'day', label: tr('history.rangeDay') },
+            ]}
+          />
         </View>
 
         {mode === 'day' ? (
           <View style={styles.dateRow}>
             <TouchableOpacity style={styles.dateBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} onPress={() => setDate(shiftDay(date, -1))}>
-              <Text style={styles.dateAction}>Previous day</Text>
+              <Text style={styles.dateAction}>{tr('history.prevDay')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setDate(istDate(0))} disabled={isToday}>
-              <Text style={[styles.date, isToday && styles.dateToday]}>{date}</Text>
+              <Text style={[styles.date, isToday && styles.dateToday]}>{fmt.date(date)}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dateBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} onPress={() => setDate(shiftDay(date, 1))}>
-              <Text style={styles.dateAction}>Next day</Text>
+              <Text style={styles.dateAction}>{tr('history.nextDay')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -237,13 +259,13 @@ export default function AdminBookingsScreen({ navigation }: any) {
               accessibilityRole="button"
               accessibilityState={{ selected: group === g.key }}
             >
-              <Text style={[styles.chipText, group === g.key && styles.chipTextActive]}>{g.label}</Text>
+              <Text style={[styles.chipText, group === g.key && styles.chipTextActive]}>{tr(`history.status.${g.key}`)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <Text style={styles.summary}>
-          {describeRange(mode, date)} - {loading ? '...' : `${total} booking${total === 1 ? '' : 's'}`}
+          {loading ? `${rangeLabel} - ...` : tr('history.summary', { range: rangeLabel, count: total })}
         </Text>
       </View>
 
@@ -251,10 +273,10 @@ export default function AdminBookingsScreen({ navigation }: any) {
         <ActivityIndicator color={t.colors.brandText} style={{ marginTop: 24 }} />
       ) : error ? (
         <View style={{ alignItems: 'center', padding: 24, gap: 10 }}>
-          <Text style={styles.empty}>{"Couldn't load bookings."}</Text>
+          <Text style={styles.empty}>{tr('history.loadFailed')}</Text>
           <Text style={styles.meta}>{error}</Text>
           <TouchableOpacity style={styles.chip} onPress={load} accessibilityRole="button">
-            <Text style={styles.chipTextActive}>Retry</Text>
+            <Text style={styles.chipTextActive}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -270,15 +292,15 @@ export default function AdminBookingsScreen({ navigation }: any) {
                 onPress={() => navigation.navigate('AdminBookingDetail', { bookingId: booking.id, booking })}
                 activeOpacity={0.8}
               >
-                <Text style={styles.customer}>{booking.user?.name || booking.user_name || 'Customer'}</Text>
+                <Text style={styles.customer}>{booking.user?.name || booking.user_name || tr('ownerDetail.customerFallback')}</Text>
                 <Text style={styles.meta}>{booking.user?.vehicle_number || booking.vehicle_number || '-'}</Text>
                 <Text style={styles.meta}>
-                  {mode === 'day' ? '' : `${booking.slot_date}  `}
-                  {booking.slot_start?.slice(0, 5)} - {booking.slot_end?.slice(0, 5)}
+                  {mode === 'day' ? '' : `${fmt.date(String(booking.slot_date))}  `}
+                  {fmt.clock(String(booking.slot_start))} - {fmt.clock(String(booking.slot_end))}
                 </Text>
                 <View style={[styles.badge, isNegative && styles.badgeNegative, isPending && styles.badgePending]}>
                   <Text style={[styles.badgeText, isNegative && styles.badgeTextNegative, isPending && styles.badgeTextPending]}>
-                    {booking.status}
+                    {STATUS_IDS.includes(booking.status) ? tr(`status.${booking.status}`) : booking.status}
                   </Text>
                 </View>
 
@@ -289,7 +311,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
                       disabled={actingOn === booking.id}
                       onPress={() => handleReject(booking.id)}
                     >
-                      <Text style={styles.rejectBtnText}>Reject</Text>
+                      <Text style={styles.rejectBtnText}>{tr('owner.reject')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.approveBtn, expired && styles.approveBtnDisabled]}
@@ -300,13 +322,13 @@ export default function AdminBookingsScreen({ navigation }: any) {
                       {actingOn === booking.id ? (
                         <ActivityIndicator size="small" color={t.colors.onBrand} />
                       ) : (
-                        <Text style={[styles.approveBtnText, expired && styles.approveBtnTextDisabled]}>{expired ? 'Expired' : 'Approve'}</Text>
+                        <Text style={[styles.approveBtnText, expired && styles.approveBtnTextDisabled]}>{expired ? tr('owner.expired') : tr('owner.approve')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
                 ) : null}
                 {isPending && expired ? (
-                  <Text style={styles.expiredNote}>Time expired: this slot has already started, so it can no longer be approved. Reject it to free the slot.</Text>
+                  <Text style={styles.expiredNote}>{tr('owner.expiredNote')}</Text>
                 ) : null}
 
                 {canMarkNoShow(booking) ? (
@@ -318,17 +340,17 @@ export default function AdminBookingsScreen({ navigation }: any) {
                     {actingOn === booking.id ? (
                       <ActivityIndicator size="small" color={t.colors.dangerText} />
                     ) : (
-                      <Text style={styles.rejectBtnText}>Mark no-show</Text>
+                      <Text style={styles.rejectBtnText}>{tr('owner.markNoShow')}</Text>
                     )}
                   </TouchableOpacity>
                 ) : null}
               </TouchableOpacity>
             );
           })}
-          {bookings.length === 0 ? <Text style={styles.empty}>No bookings match this filter.</Text> : null}
+          {bookings.length === 0 ? <Text style={styles.empty}>{tr('history.noMatch')}</Text> : null}
           {hasMore ? (
             <TouchableOpacity style={[styles.chip, { alignSelf: 'center', marginTop: 8 }]} onPress={loadMore} disabled={loadingMore} accessibilityRole="button">
-              {loadingMore ? <ActivityIndicator size="small" color={t.colors.brandText} /> : <Text style={styles.chipTextActive}>{`Load more (${total - bookings.length} older)`}</Text>}
+              {loadingMore ? <ActivityIndicator size="small" color={t.colors.brandText} /> : <Text style={styles.chipTextActive}>{tr('history.loadMore', { count: total - bookings.length })}</Text>}
             </TouchableOpacity>
           ) : null}
         </ScrollView>

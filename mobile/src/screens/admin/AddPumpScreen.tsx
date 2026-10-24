@@ -11,13 +11,16 @@ import {
 import PumpLocationPicker, { type ConfirmedPumpLocation } from '../../components/PumpLocationPicker';
 import { pumpService } from '../../services/pump.service';
 import { LocationIcon, ArrowLeftIcon } from '../../components/ui/Icons';
-import ThemeToggle from '../../components/ThemeToggle';
+import OverflowMenu from '../../components/OverflowMenu';
+import { apiErrorMessage } from '../../i18n/errors';
 import { normalizeSchedule } from '../../utils/schedule';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 
 export default function AddPumpScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [pumpName, setPumpName] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -54,13 +57,13 @@ export default function AddPumpScreen({ navigation }: any) {
 
   const onSubmit = async () => {
     if (!pumpName.trim() || !licenseNumber.trim() || !address.trim() || !city.trim() || !district.trim() || lat == null || lng == null) {
-      Alert.alert('Missing fields', lat == null ? 'Please set the pump location on the map.' : 'Please fill all required fields.');
+      Alert.alert(tr('pumpForm.missingTitle'), lat == null ? tr('pumpForm.missingLocation') : tr('pumpForm.missingAll'));
       return;
     }
 
     const schedule = normalizeSchedule(openingTime, closingTime);
     if (!schedule.ok) {
-      Alert.alert('Check operating hours', schedule.message);
+      Alert.alert(tr('schedule.checkHours'), tr(`schedule.${schedule.code}`));
       return;
     }
 
@@ -81,14 +84,14 @@ export default function AddPumpScreen({ navigation }: any) {
         cng_price_per_kg: Number(cngPrice),
       });
 
-      Alert.alert('Success', 'Pump registered successfully.', [
+      Alert.alert(tr('common.success'), tr('pumpForm.registerSuccess'), [
         {
-          text: 'OK',
+          text: tr('common.ok'),
           onPress: () => navigation.navigate('AdminTabs', { screen: 'AdminDashboard' }),
         },
       ]);
     } catch (error: any) {
-      Alert.alert('Failed', error?.response?.data?.error || 'Could not register pump.');
+      Alert.alert(tr('pumpForm.failed'), apiErrorMessage(error, tr, 'pumpForm.registerFailed'));
     } finally {
       setSaving(false);
     }
@@ -100,28 +103,28 @@ export default function AddPumpScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeftIcon size={22} color={t.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { flex: 1 }]}>Register Pump</Text>
-        <ThemeToggle size={20} style={{ width: 40, height: 40 }} />
+        <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>{tr('pumpForm.registerTitle')}</Text>
+        <OverflowMenu style={{ width: 40, height: 40, borderRadius: 20 }} offsetTop={60} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.label}>Pump Name*</Text>
+          <Text style={styles.label}>{tr('pumpForm.name')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={pumpName} onChangeText={setPumpName} />
 
-          <Text style={styles.label}>License Number*</Text>
+          <Text style={styles.label}>{tr('pumpForm.license')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={licenseNumber} onChangeText={setLicenseNumber} />
 
-          <Text style={styles.label}>Address*</Text>
+          <Text style={styles.label}>{tr('pumpForm.address')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={address} onChangeText={setAddress} />
 
-          <Text style={styles.label}>City*</Text>
+          <Text style={styles.label}>{tr('pumpForm.city')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={city} onChangeText={setCity} />
 
-          <Text style={styles.label}>District*</Text>
+          <Text style={styles.label}>{tr('pumpForm.district')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={district} onChangeText={setDistrict} />
 
-          <Text style={styles.label}>PIN Code</Text>
+          <Text style={styles.label}>{tr('pumpForm.pin')}</Text>
           <TextInput
             style={[styles.input, { marginBottom: 0 }]}
             placeholderTextColor={t.colors.placeholder}
@@ -133,31 +136,31 @@ export default function AddPumpScreen({ navigation }: any) {
 
         <View style={styles.card}>
           <TouchableOpacity style={styles.mapBtn} onPress={() => setMapVisible(true)}>
-            <Text style={styles.mapBtnText}>{lat != null ? 'Change Pump Location' : 'Set Pump Location'}</Text>
+            <Text style={styles.mapBtnText}>{lat != null ? tr('pumpForm.changeLocation') : tr('pumpForm.setLocation')}</Text>
           </TouchableOpacity>
           {lat != null && lng != null ? (
             <View style={styles.coordRow}>
               <LocationIcon size={12} color={t.colors.brandText} />
-              <Text style={styles.coord}>Location set: {lat.toFixed(6)}, {lng.toFixed(6)}</Text>
+              <Text style={styles.coord}>{tr('pumpForm.locationSet', { lat: lat.toFixed(6), lng: lng.toFixed(6) })}</Text>
             </View>
           ) : (
-            <Text style={styles.coordMuted}>Search an address or use your current location</Text>
+            <Text style={styles.coordMuted}>{tr('pumpForm.locationHint')}</Text>
           )}
         </View>
 
         <View style={styles.card}>
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Opening Time*</Text>
+              <Text style={styles.label}>{tr('pumpForm.opening')}</Text>
               <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Closing Time*</Text>
+              <Text style={styles.label}>{tr('pumpForm.closing')}</Text>
               <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={closingTime} onChangeText={setClosingTime} placeholder="22:00" />
             </View>
           </View>
 
-          <Text style={styles.label}>Vehicles per slot</Text>
+          <Text style={styles.label}>{tr('pumpForm.vehiclesPerSlot')}</Text>
           <View style={styles.stepper}>
             <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => Math.max(1, v - 1))}>
               <Text style={styles.stepText}>−</Text>
@@ -168,7 +171,7 @@ export default function AddPumpScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>CNG Price (₹/kg)</Text>
+          <Text style={styles.label}>{tr('pumpForm.priceOptional')}</Text>
           <TextInput
             style={[styles.input, { marginBottom: 0 }]}
             placeholderTextColor={t.colors.placeholder}
@@ -179,7 +182,7 @@ export default function AddPumpScreen({ navigation }: any) {
         </View>
 
         <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={onSubmit} disabled={saving}>
-          <Text style={styles.submitText}>{saving ? 'Registering...' : 'Register Pump'}</Text>
+          <Text style={styles.submitText}>{saving ? tr('pumpForm.registering') : tr('pumpForm.register')}</Text>
         </TouchableOpacity>
       </ScrollView>
 

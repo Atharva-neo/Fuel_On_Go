@@ -21,9 +21,11 @@ import { useTheme, type Theme } from '../../theme';
 import RatingBadge from '../../components/RatingBadge';
 import { groupSlotsByPeriod, istDate, slotStartMs } from '../../utils/schedule';
 import { useRatingEvents } from '../../ratings/ratingEvents';
+import { useT } from '../../i18n';
 
 export default function PumpDetailScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const { pumpId } = route.params;
   const [pump, setPump] = useState<any>(null);
@@ -33,7 +35,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [fuelPaymentMethod, setFuelPaymentMethod] = useState<'cash' | 'upi'>('cash');
-  
+
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
 
@@ -53,7 +55,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
       setSlots(lists.flatMap((r) => (Array.isArray(r.data) ? r.data : [])));
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Unable to load details.');
+      Alert.alert(tr('common.error'), tr('pump.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -61,9 +63,9 @@ export default function PumpDetailScreen({ route, navigation }: any) {
 
   const handleBook = (slot: any) => {
     if (!token || !user) {
-      Alert.alert('Login Required', 'Please login to book a slot.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Login', onPress: () => navigation.navigate('UserAuth') },
+      Alert.alert(tr('pump.loginRequiredTitle'), tr('pump.loginRequiredBody'), [
+        { text: tr('common.cancel'), style: 'cancel' },
+        { text: tr('pump.login'), onPress: () => navigation.navigate('UserAuth') },
       ]);
       return;
     }
@@ -121,11 +123,11 @@ export default function PumpDetailScreen({ route, navigation }: any) {
           <TouchableOpacity
             style={styles.ratingBadge}
             accessibilityRole="button"
-            accessibilityLabel="View reviews"
+            accessibilityLabel={tr('pump.viewReviews')}
             onPress={() => navigation.navigate('PumpReviews', { pumpId, pumpName: pump.name })}
           >
             <RatingBadge average={pump.rating_avg} count={pump.rating_count} size={13} />
-            <Text style={styles.ratingText}>Reviews</Text>
+            <Text style={styles.ratingText}>{tr('pump.reviews')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -134,16 +136,16 @@ export default function PumpDetailScreen({ route, navigation }: any) {
 
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Price</Text>
-            <Text style={styles.statValueHighlight}>₹{pump.cng_price_per_kg || '87.50'}/kg</Text>
+            <Text style={styles.statLabel}>{tr('pump.price')}</Text>
+            <Text style={styles.statValueHighlight}>{tr('common.pricePerKg', { price: fmt.rupees(Number(pump.cng_price_per_kg || 87.5)) })}</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Status</Text>
-            <Text style={styles.statValue}>Available</Text>
+            <Text style={styles.statLabel}>{tr('pump.status')}</Text>
+            <Text style={styles.statValue}>{tr('pump.available')}</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Wait Time</Text>
-            <Text style={styles.statValue}>~5 mins</Text>
+            <Text style={styles.statLabel}>{tr('pump.waitTime')}</Text>
+            <Text style={styles.statValue}>{tr('pump.waitValue', { count: fmt.number(5) })}</Text>
           </View>
         </View>
       </View>
@@ -154,26 +156,26 @@ export default function PumpDetailScreen({ route, navigation }: any) {
             style={[styles.tab, activeTab === 'Today' && styles.tabActive]}
             onPress={() => setActiveTab('Today')}
           >
-            <Text style={[styles.tabText, activeTab === 'Today' && styles.tabTextActive]}>Today</Text>
+            <Text style={[styles.tabText, activeTab === 'Today' && styles.tabTextActive]}>{tr('pump.today')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'Tomorrow' && styles.tabActive]}
             onPress={() => setActiveTab('Tomorrow')}
           >
-            <Text style={[styles.tabText, activeTab === 'Tomorrow' && styles.tabTextActive]}>Tomorrow</Text>
+            <Text style={[styles.tabText, activeTab === 'Tomorrow' && styles.tabTextActive]}>{tr('pump.tomorrow')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>Available Slots</Text>
+        <Text style={styles.sectionTitle}>{tr('pump.availableSlots')}</Text>
         {periods.length === 0 ? (
-          <Text style={styles.empty}>No slots available for this day</Text>
+          <Text style={styles.empty}>{tr('pump.noSlotsDay')}</Text>
         ) : null}
         {periods.map((section) => (
           <View key={section.key} style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <MaterialCommunityIcons name={section.icon as any} size={16} color={t.colors.text} />
               <Text style={styles.sectionHeader}>
-                {section.label} · {openSlotsCount(section.data)} slots available
+                {tr('pump.periodSlots', { label: tr(`period.${section.key}`), count: openSlotsCount(section.data) })}
               </Text>
             </View>
             {(
@@ -183,7 +185,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
                 onSelect={(slot) => handleBook(slot)}
                 onLongPress={(slot) => {
                   if ((slot.status === 'deactivated' || slot.is_deactivated) && slot.deactivation_reason) {
-                    Alert.alert('Slot unavailable', slot.deactivation_reason);
+                    Alert.alert(tr('pump.slotUnavailable'), slot.deactivation_reason);
                   }
                 }}
               />
@@ -194,25 +196,24 @@ export default function PumpDetailScreen({ route, navigation }: any) {
       <Modal visible={sheetVisible} transparent animationType="slide" onRequestClose={() => setSheetVisible(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheetCard}>
-            <Text style={styles.sheetTitle}>Book This Slot</Text>
+            <Text style={styles.sheetTitle}>{tr('pump.bookThisSlot')}</Text>
             {selectedSlot ? (
               <>
                 <Text style={styles.sheetText}>{pump.name}</Text>
                 <Text style={styles.sheetText}>
-                  Slot: {String(selectedSlot.start_time).slice(0, 5)} - {String(selectedSlot.end_time).slice(0, 5)}
+                  {tr('pump.slotLine', { start: fmt.clock(String(selectedSlot.start_time)), end: fmt.clock(String(selectedSlot.end_time)) })}
                 </Text>
-                <Text style={styles.sheetText}>Price per kg: ₹{price.toFixed(2)}</Text>
+                <Text style={styles.sheetText}>{tr('pump.pricePerKgLine', { price: fmt.rupees(price) })}</Text>
                 <Text style={[styles.sheetNote, { marginTop: 8 }]}>
-                  You'll fill up to full tank at the pump — the amount depends on your
-                  vehicle, so it's settled there. This booking fee just secures your slot.
+                  {tr('pump.feeNote')}
                 </Text>
-                <Text style={[styles.sheetText, { marginTop: 8 }]}>Pay the fuel amount at pump via:</Text>
+                <Text style={[styles.sheetText, { marginTop: 8 }]}>{tr('pump.payFuelVia')}</Text>
                 <View style={styles.radioRow}>
                   <TouchableOpacity onPress={() => setFuelPaymentMethod('cash')} style={styles.radioBtn}>
-                    <Text>{fuelPaymentMethod === 'cash' ? '◉' : '○'} Cash at pump</Text>
+                    <Text>{fuelPaymentMethod === 'cash' ? '◉' : '○'} {tr('pump.cashAtPump')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setFuelPaymentMethod('upi')} style={styles.radioBtn}>
-                    <Text>{fuelPaymentMethod === 'upi' ? '◉' : '○'} UPI at pump</Text>
+                    <Text>{fuelPaymentMethod === 'upi' ? '◉' : '○'} {tr('pump.upiAtPump')}</Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
@@ -226,7 +227,7 @@ export default function PumpDetailScreen({ route, navigation }: any) {
                     });
                   }}
                 >
-                  <Text style={styles.confirmText}>Confirm & Pay ₹50</Text>
+                  <Text style={styles.confirmText}>{tr('pump.confirmPay', { fee: fmt.rupees(50, 0) })}</Text>
                 </TouchableOpacity>
               </>
             ) : null}

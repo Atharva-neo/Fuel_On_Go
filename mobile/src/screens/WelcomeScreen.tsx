@@ -3,10 +3,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LightningIcon, CarIcon, UserIcon } from '../components/ui/Icons';
 import ThemeToggle from '../components/ThemeToggle';
 import Logo from '../components/Logo';
+import LanguageSelector from '../components/LanguageSelector';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 export default function WelcomeScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   return (
     <View style={styles.container}>
@@ -20,21 +23,24 @@ export default function WelcomeScreen({ navigation }: any) {
 
       <View style={styles.content}>
         <Logo size={132} style={{ marginBottom: 20 }} />
-        <Text style={styles.tagline}>Book your CNG slot. Skip the queue.</Text>
+        <Text style={styles.tagline}>{tr('auth.tagline')}</Text>
+        <View style={{ marginTop: 24 }}>
+          <LanguageSelector compact />
+        </View>
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('UserAuth')}>
           <CarIcon size={20} color={t.colors.text} />
           <Text style={styles.primaryText} numberOfLines={1}>
-            I'm a Vehicle Owner
+            {tr('welcome.vehicleOwner')}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('AdminAuth')}>
           <UserIcon size={20} color={t.colors.onInverse} />
           <Text style={styles.secondaryText} numberOfLines={1}>
-            I'm a Pump Owner
+            {tr('welcome.pumpOwner')}
           </Text>
         </TouchableOpacity>
       </View>

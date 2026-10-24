@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
+import { apiErrorMessage } from '../i18n/errors';
 import { CarIcon, AutoIcon, BusIcon, CheckIcon } from '../components/ui/Icons';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 const VEHICLE_TYPES: Array<{ type: 'Car' | 'Auto' | 'Bus' | 'Other', icon: React.FC<any> }> = [
   { type: 'Car', icon: CarIcon },
@@ -23,6 +25,7 @@ const VEHICLE_TYPES: Array<{ type: 'Car' | 'Auto' | 'Bus' | 'Other', icon: React
 
 export default function RegistrationScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const params = route.params || {};
   const flow: 'user' | 'pump_owner' = params.flow === 'pump_owner' ? 'pump_owner' : 'user';
@@ -37,22 +40,22 @@ export default function RegistrationScreen({ route, navigation }: any) {
 
   const setPendingAuth = useAuthStore((s) => s.setPendingAuth);
 
-  const title = useMemo(() => (flow === 'pump_owner' ? 'Register as Pump Owner' : 'Create Account'), [flow]);
+  const title = flow === 'pump_owner' ? tr('auth.registerAsOwner') : tr('auth.createAccount');
 
   const onSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('Missing field', 'Full name is required.');
+      Alert.alert(tr('auth.missingField'), tr('auth.nameRequired'));
       return;
     }
 
     if (flow === 'user') {
       if (!vehicleNumber.trim()) {
-        Alert.alert('Missing field', 'Vehicle number is required.');
+        Alert.alert(tr('auth.missingField'), tr('auth.vehicleRequired'));
         return;
       }
     } else {
       if (!email.trim() || !businessName.trim()) {
-        Alert.alert('Missing field', 'Email and business name are required for pump owner.');
+        Alert.alert(tr('auth.missingField'), tr('auth.ownerFieldsRequired'));
         return;
       }
     }
@@ -80,13 +83,7 @@ export default function RegistrationScreen({ route, navigation }: any) {
       navigation.navigate('OTPVerify', { phone, flow, name: name.trim() });
     } catch (error: any) {
       console.log('REGISTRATION ERROR:', error?.response?.data || error?.message || error);
-      Alert.alert(
-        'Registration failed', 
-        error?.response?.data?.message || 
-        error?.response?.data?.error || 
-        error?.message || 
-        JSON.stringify(error)
-      );
+      Alert.alert(tr('auth.registrationFailed'), apiErrorMessage(error, tr));
     } finally {
       setLoading(false);
     }
@@ -100,16 +97,16 @@ export default function RegistrationScreen({ route, navigation }: any) {
       </View>
       <Text style={styles.title}>{title}</Text>
 
-      <Text style={styles.label}>Full Name*</Text>
+      <Text style={styles.label}>{tr('auth.fullNameReq')}</Text>
       <TextInput
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder="Your full name"
+        placeholder={tr('auth.yourFullName')}
         placeholderTextColor={t.colors.placeholder}
       />
 
-      <Text style={styles.label}>Phone*</Text>
+      <Text style={styles.label}>{tr('auth.phoneReq')}</Text>
       <TextInput
         style={[styles.input, styles.disabled]}
         value={phone}
@@ -118,7 +115,7 @@ export default function RegistrationScreen({ route, navigation }: any) {
 
       {flow === 'user' ? (
         <>
-          <Text style={styles.label}>Vehicle Number*</Text>
+          <Text style={styles.label}>{tr('auth.vehicleNumberReq')}</Text>
           <TextInput
             style={styles.input}
             value={vehicleNumber}
@@ -128,7 +125,7 @@ export default function RegistrationScreen({ route, navigation }: any) {
             autoCapitalize="characters"
           />
 
-          <Text style={styles.label}>Vehicle Type</Text>
+          <Text style={styles.label}>{tr('auth.vehicleType')}</Text>
           <View style={styles.chipRow}>
             {VEHICLE_TYPES.map(({ type, icon: Icon }) => {
               const isActive = vehicleType === type;
@@ -139,14 +136,14 @@ export default function RegistrationScreen({ route, navigation }: any) {
                   onPress={() => setVehicleType(type)}
                 >
                   <Icon size={18} color={isActive ? t.colors.text : t.colors.textSecondary} />
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{type}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{tr(`vehicle.${type}`)}</Text>
                   {isActive && <CheckIcon size={14} color={t.colors.text} />}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <Text style={styles.label}>Email (optional)</Text>
+          <Text style={styles.label}>{tr('auth.emailOptional')}</Text>
           <TextInput
             style={styles.input}
             value={email}
@@ -159,7 +156,7 @@ export default function RegistrationScreen({ route, navigation }: any) {
         </>
       ) : (
         <>
-          <Text style={styles.label}>Email*</Text>
+          <Text style={styles.label}>{tr('auth.emailReq')}</Text>
           <TextInput
             style={styles.input}
             value={email}
@@ -170,12 +167,12 @@ export default function RegistrationScreen({ route, navigation }: any) {
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>Business Name*</Text>
+          <Text style={styles.label}>{tr('auth.businessNameReq')}</Text>
           <TextInput
             style={styles.input}
             value={businessName}
             onChangeText={setBusinessName}
-            placeholder="Your CNG station name"
+            placeholder={tr('auth.businessPlaceholder')}
             placeholderTextColor={t.colors.placeholder}
           />
         </>
@@ -186,7 +183,7 @@ export default function RegistrationScreen({ route, navigation }: any) {
           <ActivityIndicator color={flow === 'pump_owner' ? t.colors.onBrand : t.colors.text} />
         ) : (
           <Text style={flow === 'pump_owner' ? styles.buttonTextAdmin : styles.buttonText}>
-            {flow === 'pump_owner' ? 'Register & Get OTP' : 'Create Account & Get OTP'}
+            {flow === 'pump_owner' ? tr('auth.registerGetOtpOwner') : tr('auth.registerGetOtpUser')}
           </Text>
         )}
       </TouchableOpacity>

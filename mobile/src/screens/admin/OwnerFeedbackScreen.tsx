@@ -14,15 +14,18 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, type Theme } from '../../theme';
-import ThemeToggle from '../../components/ThemeToggle';
+import OverflowMenu from '../../components/OverflowMenu';
+import { apiErrorMessage } from '../../i18n/errors';
 import { pumpService } from '../../services/pump.service';
 import { ratingService, type PumpReviews, type ReviewItem } from '../../services/rating.service';
 import { RatingSummaryCard, ReviewRow } from '../../components/ReviewParts';
+import { useT } from '../../i18n';
 
 // Owner view of feedback for THEIR pump. Owners can report a review (admin decides);
 // they cannot edit or delete it. Reviewers are shown by first name only.
 export default function OwnerFeedbackScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
 
   const [pumpId, setPumpId] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
     } catch (e: any) {
       // A failed request is an error state with the real reason; it is never shown as "no reviews".
       setError(true);
-      setErrorMsg(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
+      setErrorMsg(apiErrorMessage(e, tr));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -95,7 +98,7 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
       setReporting(null);
       setReason('');
     } catch (e: any) {
-      setReportError(e?.response?.data?.error || "Couldn't send the report. Try again.");
+      setReportError(apiErrorMessage(e, tr, 'feedback.reportFailed'));
     } finally {
       setSending(false);
     }
@@ -106,26 +109,26 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityLabel={tr('common.back')}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={t.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Customer Feedback</Text>
-        <ThemeToggle size={20} style={{ width: 40, height: 40 }} />
+        <Text style={styles.title}>{tr('feedback.title')}</Text>
+        <OverflowMenu style={{ width: 40, height: 40, borderRadius: 20 }} offsetTop={56} />
       </View>
 
       {loading && !data ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={t.colors.brandText} />
       ) : noPump ? (
         <View style={styles.center}>
-          <Text style={styles.muted}>Register your pump to receive customer feedback.</Text>
+          <Text style={styles.muted}>{tr('feedback.registerFirst')}</Text>
         </View>
       ) : error && !data ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="wifi-off" size={28} color={t.colors.textMuted} />
-          <Text style={styles.muted}>Couldn't load feedback.</Text>
+          <Text style={styles.muted}>{tr('feedback.loadFailed')}</Text>
           {errorMsg ? <Text style={styles.hint}>{errorMsg}</Text> : null}
           <TouchableOpacity style={styles.retry} onPress={() => load()} accessibilityRole="button">
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : data ? (
@@ -140,10 +143,10 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
             <View style={{ gap: 12 }}>
               <RatingSummaryCard data={data} />
               <View style={styles.trendCard}>
-                <Text style={styles.sectionTitle}>Last 8 weeks</Text>
+                <Text style={styles.sectionTitle}>{tr('feedback.last8')}</Text>
                 <View style={styles.trendRow}>
                   {(data.trend || []).map((w) => (
-                    <View key={w.week_ending} style={styles.trendCol} accessible accessibilityLabel={`Week ending ${w.week_ending}: ${w.count} reviews${w.average ? `, average ${w.average}` : ''}`}>
+                    <View key={w.week_ending} style={styles.trendCol} accessible accessibilityLabel={w.average ? tr('feedback.weekA11y', { date: w.week_ending, count: w.count, avg: w.average }) : tr('feedback.weekA11yNoAvg', { date: w.week_ending, count: w.count })}>
                       <Text style={styles.trendAvg}>{w.average ? w.average.toFixed(1) : '-'}</Text>
                       <View style={styles.trendTrack}>
                         <View style={[styles.trendFill, { height: `${(w.count / trendMax) * 100}%` }]} />
@@ -152,9 +155,9 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
                     </View>
                   ))}
                 </View>
-                <Text style={styles.hint}>Average rating (top) and number of reviews (bottom) per week.</Text>
+                <Text style={styles.hint}>{tr('feedback.trendHint')}</Text>
               </View>
-              <Text style={styles.sectionTitle}>All feedback</Text>
+              <Text style={styles.sectionTitle}>{tr('feedback.all')}</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -162,9 +165,9 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
               item={item}
               footer={
                 item.status !== 'hidden' && !item.report_status ? (
-                  <TouchableOpacity style={styles.reportBtn} onPress={() => { setReporting(item); setReason(''); setReportError(null); }} accessibilityRole="button" accessibilityLabel="Report this review">
+                  <TouchableOpacity style={styles.reportBtn} onPress={() => { setReporting(item); setReason(''); setReportError(null); }} accessibilityRole="button" accessibilityLabel={tr('feedback.reportA11y')}>
                     <MaterialCommunityIcons name="flag-outline" size={14} color={t.colors.textSecondary} />
-                    <Text style={styles.reportText}>Report</Text>
+                    <Text style={styles.reportText}>{tr('feedback.report')}</Text>
                   </TouchableOpacity>
                 ) : null
               }
@@ -173,7 +176,7 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
           ListEmptyComponent={
             <View style={styles.center}>
               <MaterialCommunityIcons name="star-outline" size={28} color={t.colors.textMuted} />
-              <Text style={styles.muted}>No reviews yet. Customers can rate after a completed visit.</Text>
+              <Text style={styles.muted}>{tr('feedback.empty')}</Text>
             </View>
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator color={t.colors.brandText} /> : null}
@@ -183,9 +186,9 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
       <Modal visible={!!reporting} transparent animationType="fade" onRequestClose={() => setReporting(null)}>
         <KeyboardAvoidingView style={styles.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Report this review</Text>
+            <Text style={styles.modalTitle}>{tr('feedback.reportTitle')}</Text>
             <Text style={styles.hint}>
-              Reviews can't be removed by owners. An admin will check your report. Explain what is wrong (abuse, not a real visit, etc.).
+              {tr('feedback.reportBody')}
             </Text>
             <TextInput
               style={styles.input}
@@ -193,22 +196,22 @@ export default function OwnerFeedbackScreen({ navigation }: any) {
               value={reason}
               onChangeText={setReason}
               maxLength={500}
-              placeholder="Reason (at least 5 characters)"
+              placeholder={tr('feedback.reasonPlaceholder')}
               placeholderTextColor={t.colors.placeholder}
-              accessibilityLabel="Report reason"
+              accessibilityLabel={tr('feedback.reasonLabel')}
               textAlignVertical="top"
             />
             {reportError ? <Text style={[styles.hint, { color: t.colors.dangerText }]}>{reportError}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalGhost]} onPress={() => setReporting(null)} disabled={sending}>
-                <Text style={styles.modalGhostText}>Cancel</Text>
+                <Text style={styles.modalGhostText}>{tr('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalPrimary, (reason.trim().length < 5 || sending) && { opacity: 0.5 }]}
                 onPress={sendReport}
                 disabled={reason.trim().length < 5 || sending}
               >
-                {sending ? <ActivityIndicator color={t.colors.onBrand} /> : <Text style={styles.modalPrimaryText}>Send report</Text>}
+                {sending ? <ActivityIndicator color={t.colors.onBrand} /> : <Text style={styles.modalPrimaryText}>{tr('feedback.sendReport')}</Text>}
               </TouchableOpacity>
             </View>
           </View>

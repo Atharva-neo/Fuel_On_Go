@@ -3,6 +3,7 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocationStore } from '../../store/locationStore';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 const QUICK_CITIES = [
   { city: 'Pune', district: 'Pune', lat: 18.5204, lng: 73.8567 },
@@ -14,6 +15,7 @@ const QUICK_CITIES = [
 
 export default function LocationSetupScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const setLocation = useLocationStore((s) => s.setLocation);
   const [query, setQuery] = useState('');
@@ -39,7 +41,7 @@ export default function LocationSetupScreen({ navigation }: any) {
       const res = await fetch(url, { headers: { 'User-Agent': 'FuelOnGoApp/1.0' } });
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
-        Alert.alert('Not found', 'Could not find this location.');
+        Alert.alert(tr('location.notFoundTitle'), tr('location.notFoundBody'));
         return;
       }
 
@@ -61,7 +63,7 @@ export default function LocationSetupScreen({ navigation }: any) {
 
       navigation.goBack();
     } catch {
-      Alert.alert('Error', 'Failed to update location.');
+      Alert.alert(tr('common.error'), tr('location.updateFailed'));
     } finally {
       setLoading(false);
     }
@@ -69,28 +71,28 @@ export default function LocationSetupScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Text style={styles.title}>Choose Location</Text>
+      <Text style={styles.title}>{tr('location.choose')}</Text>
 
       <View style={styles.searchRow}>
         <TextInput
           style={styles.input}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search locality, city or district"
+          placeholder={tr('location.searchPlaceholder')}
         />
         <TouchableOpacity style={styles.searchBtn} onPress={searchAndSet} disabled={loading}>
-          <Text style={styles.searchBtnText}>{loading ? '...' : 'Search'}</Text>
+          <Text style={styles.searchBtnText}>{loading ? '...' : tr('common.search')}</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.quickTitle}>Quick select</Text>
+      <Text style={styles.quickTitle}>{tr('location.quickSelect')}</Text>
       <FlatList
         data={QUICK_CITIES}
         keyExtractor={(item) => item.city}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.row} onPress={() => pickQuick(item)}>
             <Text style={styles.rowTitle}>{item.city}</Text>
-            <Text style={styles.rowSub}>{item.district}, Maharashtra</Text>
+            <Text style={styles.rowSub}>{tr('location.inMaharashtra', { district: item.district })}</Text>
           </TouchableOpacity>
         )}
       />

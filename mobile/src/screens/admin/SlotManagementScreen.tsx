@@ -17,11 +17,15 @@ import { AlertIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme, type Theme } from '../../theme';
 import { istDate } from '../../utils/schedule';
+import { langStore } from '../../i18n';
+import { formatClock, formatInstantTime } from '../../i18n/format';
+import { apiErrorMessage } from '../../i18n/errors';
+import { useT } from '../../i18n';
 
 const DATES = [
-  { label: 'Today', value: 0 },
-  { label: 'Tomorrow', value: 1 },
-  { label: 'Day After', value: 2 },
+  { key: 'slots.today', value: 0 },
+  { key: 'slots.tomorrow', value: 1 },
+  { key: 'slots.dayAfter', value: 2 },
 ];
 
 // Dates are India Standard Time, like the server (a UTC date is wrong for ~5.5 h every day).
@@ -31,20 +35,10 @@ function getDateString(offset: number) {
 
 function formatTime(isoString: string) {
   if (!isoString) return '';
-  // Handle both "HH:MM:SS" time strings and full ISO timestamps
-  let dateObj: Date;
-  if (isoString.includes('T') || isoString.includes(' ')) {
-    dateObj = new Date(isoString);
-  } else {
-    // Plain time "HH:MM:SS" — combine with today's date
-    const today = new Date().toISOString().split('T')[0];
-    dateObj = new Date(`${today}T${isoString}`);
-  }
-  return dateObj.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const lang = langStore.getState().language;
+  // Handle both "HH:MM:SS" wall-clock times (IST, as stored) and full ISO timestamps
+  if (isoString.includes('T') || isoString.includes(' ')) return formatInstantTime(isoString, lang);
+  return formatClock(isoString, lang);
 }
 
 function parseHM(hms: string): [number, number] {
@@ -57,21 +51,14 @@ function pad2(n: number) {
 }
 
 function to12Hour(h: number, m: number) {
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${pad2(m)} ${period}`;
+  return formatClock(`${pad2(h)}:${pad2(m)}`, langStore.getState().language);
 }
 
-const REASON_CHIPS = [
-  'CNG supply over',
-  'Maintenance',
-  'Truck delivery pending',
-  'Technical issue',
-  'Weather conditions',
-];
+const REASON_CHIPS = ['slots.reason.supplyOver', 'slots.reason.maintenance', 'slots.reason.truck', 'slots.reason.technical', 'slots.reason.weather'];
 
 export default function SlotManagementScreen() {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [selectedDay, setSelectedDay] = useState(0);
   const [slots, setSlots] = useState<any[]>([]);
@@ -95,7 +82,7 @@ export default function SlotManagementScreen() {
       setSlots(res.data.slots || res.data || []);
       setSchedule(res.data.schedule || null);
     } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Failed to load slots';
+      const msg = apiErrorMessage(err, tr, 'slots.loadFailed');
       setError(msg);
     } finally {
       setLoading(false);
@@ -129,13 +116,13 @@ export default function SlotManagementScreen() {
       await api.patch(`/slots/${slot.id}/activate`);
       fetchSlots();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Failed to activate slot');
+      Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'slots.activateFailed'));
     }
   };
 
   const handleDeactivate = async () => {
     if (!reason.trim()) {
-      Alert.alert('Required', 'Please provide a reason for deactivation');
+      Alert.alert(tr('slots.reasonRequiredTitle'), tr('slots.reasonRequired'));
       return;
     }
     setSaving(true);
@@ -147,7 +134,7 @@ export default function SlotManagementScreen() {
       setDeactivateModal(null);
       fetchSlots();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Failed to deactivate slot');
+      Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'slots.deactivateFailed'));
     } finally {
       setSaving(false);
     }
@@ -158,7 +145,7 @@ export default function SlotManagementScreen() {
     if (newCap < 1) return;
     const booked = slot.booked_count || 0;
     if (newCap < booked) {
-      Alert.alert('Cannot reduce', `${booked} vehicles already booked for this slot`);
+      Alert.alert(tr('slots.cannotReduceTitle'), tr('slots.cannotReduce', { count: booked }));
       return;
     }
     try {
@@ -168,7 +155,7 @@ export default function SlotManagementScreen() {
         prev.map((s) => (s.id === slot.id ? { ...s, capacity: newCap } : s))
       );
     } catch (err: any) {
-      Alert.alert('Error', 'Failed to update capacity');
+      Alert.alert(tr('common.error'), tr('slots.capacityFailed'));
     }
   };
 
@@ -202,7 +189,7 @@ export default function SlotManagementScreen() {
       setEditTimeModal(null);
       fetchSlots();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Failed to update slot time');
+      Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'slots.timeFailed'));
     } finally {
       setSaving(false);
     }
@@ -255,12 +242,12 @@ export default function SlotManagementScreen() {
               ]}
             />
           </View>
-          <Text style={styles.progressText}>{booked}/{cap} booked</Text>
+          <Text style={styles.progressText}>{tr('slots.booked', { booked, cap })}</Text>
         </View>
 
         {/* Capacity stepper */}
         <View style={styles.capacityRow}>
-          <Text style={styles.capacityLabel}>Capacity:</Text>
+          <Text style={styles.capacityLabel}>{tr('slots.capacity')}</Text>
           <TouchableOpacity
             style={styles.stepBtn}
             onPress={() => handleCapacityChange(slot, -1)}
@@ -284,7 +271,7 @@ export default function SlotManagementScreen() {
               <Text style={styles.reasonText}>{slot.deactivation_reason}</Text>
             </View>
             {slot.resume_time ? (
-              <Text style={styles.resumeText}>Resumes: {slot.resume_time}</Text>
+              <Text style={styles.resumeText}>{tr('slots.resumes', { time: slot.resume_time })}</Text>
             ) : null}
           </View>
         ) : null}
@@ -296,7 +283,7 @@ export default function SlotManagementScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Slot Management</Text>
+        <Text style={styles.headerTitle}>{tr('slots.title')}</Text>
       </View>
 
       {/* Date tabs */}
@@ -313,7 +300,7 @@ export default function SlotManagementScreen() {
                 selectedDay === d.value && styles.dateTabTextActive,
               ]}
             >
-              {d.label}
+              {tr(d.key)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -321,8 +308,8 @@ export default function SlotManagementScreen() {
 
       {schedule ? (
         <Text style={styles.scheduleHint}>
-          Operating hours {schedule.open} - {schedule.close}
-          {schedule.overnight ? ' (overnight)' : ''}
+          {tr('slots.operatingHours', { open: schedule.open, close: schedule.close })}
+          {schedule.overnight ? ` ${tr('slots.overnight')}` : ''}
         </Text>
       ) : null}
 
@@ -330,25 +317,25 @@ export default function SlotManagementScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={t.colors.brandText} />
-          <Text style={styles.loadingText}>Loading slots...</Text>
+          <Text style={styles.loadingText}>{tr('slots.loading')}</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={fetchSlots}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : slots.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No slots for this date</Text>
+          <Text style={styles.emptyText}>{tr('slots.none')}</Text>
           <Text style={styles.emptySubtext}>
             {schedule
-              ? `Your saved hours (${schedule.open} - ${schedule.close}) leave no bookable slot on this day.`
-              : 'Slots are generated automatically from your saved operating hours.'}
+              ? tr('slots.noneWithHours', { open: schedule.open, close: schedule.close })
+              : tr('slots.autoGenerated')}
           </Text>
           <TouchableOpacity style={styles.retryBtn} onPress={fetchSlots}>
-            <Text style={styles.retryText}>Refresh</Text>
+            <Text style={styles.retryText}>{tr('slots.refresh')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -371,14 +358,14 @@ export default function SlotManagementScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Deactivate slot?</Text>
+            <Text style={styles.modalTitle}>{tr('slots.deactivateTitle')}</Text>
             {deactivateModal ? (
               <Text style={styles.modalSlotTime}>
                 {formatTime(deactivateModal.start_time)} – {formatTime(deactivateModal.end_time)}
               </Text>
             ) : null}
 
-            <Text style={styles.modalLabel}>Select reason:</Text>
+            <Text style={styles.modalLabel}>{tr('slots.selectReason')}</Text>
 
             {/* Quick reason chips */}
             <ScrollView
@@ -386,25 +373,28 @@ export default function SlotManagementScreen() {
               showsHorizontalScrollIndicator={false}
               style={styles.chipsScroll}
             >
-              {REASON_CHIPS.map((chip) => (
-                <TouchableOpacity
-                  key={chip}
-                  style={[styles.chip, reason === chip && styles.chipSelected]}
-                  onPress={() => setReason(chip)}
-                >
-                  <Text
-                    style={[styles.chipText, reason === chip && styles.chipTextSelected]}
+              {REASON_CHIPS.map((chipKey) => {
+                const chip = tr(chipKey);
+                return (
+                  <TouchableOpacity
+                    key={chipKey}
+                    style={[styles.chip, reason === chip && styles.chipSelected]}
+                    onPress={() => setReason(chip)}
                   >
-                    {chip}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[styles.chipText, reason === chip && styles.chipTextSelected]}
+                    >
+                      {chip}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
-            <Text style={styles.modalLabel}>Or type custom reason:</Text>
+            <Text style={styles.modalLabel}>{tr('slots.customReason')}</Text>
             <TextInput
               style={styles.reasonInput}
-              placeholder="e.g. CNG exhausted, truck arrives at 2 PM..."
+              placeholder={tr('slots.reasonPlaceholder')}
               placeholderTextColor={t.colors.placeholder}
               value={reason}
               onChangeText={setReason}
@@ -412,10 +402,10 @@ export default function SlotManagementScreen() {
               numberOfLines={3}
             />
 
-            <Text style={styles.modalLabel}>Slots resume from (optional):</Text>
+            <Text style={styles.modalLabel}>{tr('slots.resumeFrom')}</Text>
             <TextInput
               style={styles.resumeInput}
-              placeholder="e.g. 3:30 PM"
+              placeholder={tr('slots.resumePlaceholder')}
               placeholderTextColor={t.colors.placeholder}
               value={resumeTime}
               onChangeText={setResumeTime}
@@ -426,7 +416,7 @@ export default function SlotManagementScreen() {
                 style={styles.cancelBtn}
                 onPress={() => setDeactivateModal(null)}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{tr('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.confirmBtn, saving && styles.btnDisabled]}
@@ -436,7 +426,7 @@ export default function SlotManagementScreen() {
                 {saving ? (
                   <ActivityIndicator color={t.colors.onDanger} size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Confirm</Text>
+                  <Text style={styles.confirmBtnText}>{tr('common.confirm')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -453,30 +443,30 @@ export default function SlotManagementScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Edit Slot Time</Text>
+            <Text style={styles.modalTitle}>{tr('slots.editTime')}</Text>
             <Text style={styles.modalSlotTime}>
               {to12Hour(startH, startM)} – {to12Hour(derivedEndH, derivedEndM)}
             </Text>
-            <Text style={styles.modalHint}>Every slot is a fixed 30-minute window — set the start time and the end follows automatically.</Text>
+            <Text style={styles.modalHint}>{tr('slots.editHint')}</Text>
 
-            <Text style={styles.modalLabel}>Start time</Text>
+            <Text style={styles.modalLabel}>{tr('slots.startTime')}</Text>
             <View style={styles.timeStepperRow}>
               <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(-30)}>
-                <Text style={styles.timeStepBtnText}>−30m</Text>
+                <Text style={styles.timeStepBtnText}>{tr('slots.minus30')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(-5)}>
-                <Text style={styles.timeStepBtnText}>−5m</Text>
+                <Text style={styles.timeStepBtnText}>{tr('slots.minus5')}</Text>
               </TouchableOpacity>
               <Text style={styles.timeDisplay}>{pad2(startH)}:{pad2(startM)}</Text>
               <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(5)}>
-                <Text style={styles.timeStepBtnText}>+5m</Text>
+                <Text style={styles.timeStepBtnText}>{tr('slots.plus5')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.timeStepBtn} onPress={() => stepStart(30)}>
-                <Text style={styles.timeStepBtnText}>+30m</Text>
+                <Text style={styles.timeStepBtnText}>{tr('slots.plus30')}</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalLabel}>End time (auto)</Text>
+            <Text style={styles.modalLabel}>{tr('slots.endAuto')}</Text>
             <Text style={styles.timeDisplayReadonly}>{pad2(derivedEndH)}:{pad2(derivedEndM)}</Text>
 
             <View style={styles.modalButtons}>
@@ -484,7 +474,7 @@ export default function SlotManagementScreen() {
                 style={styles.cancelBtn}
                 onPress={() => setEditTimeModal(null)}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{tr('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveTimeBtn, saving && styles.btnDisabled]}
@@ -494,7 +484,7 @@ export default function SlotManagementScreen() {
                 {saving ? (
                   <ActivityIndicator color={t.colors.onDanger} size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Save</Text>
+                  <Text style={styles.confirmBtnText}>{tr('slots.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>

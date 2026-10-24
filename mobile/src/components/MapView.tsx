@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import { useTheme, type Theme } from '../theme';
 import { MAP_USER_AGENT, mapThemeVars } from './mapKit';
 import { homeMapHtml } from './homeMapHtml';
+import { useT } from '../i18n';
 
 interface PumpMarker {
   id: string;
@@ -48,6 +49,7 @@ interface Props {
 
 export default function MapView({ device, pumps, searchRegion, cameraCommand, onUserGesture, onPumpPress }: Props) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const webViewRef = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
@@ -81,8 +83,12 @@ export default function MapView({ device, pumps, searchRegion, cameraCommand, on
   }, [cameraCommand?.seq, ready]);
 
   useEffect(() => {
-    post({ type: 'UPDATE_PUMPS', pumps });
-  }, [pumps, ready]);
+    post({
+      type: 'UPDATE_PUMPS',
+      pumps,
+      labels: { slotsSuffix: tr('map.slotsSuffix'), kmSuffix: tr('map.kmSuffix'), pumpFallback: tr('map.pumpFallback') },
+    });
+  }, [pumps, ready, tr]);
 
   useEffect(() => {
     if (searchRegion?.bbox) {
@@ -136,12 +142,12 @@ export default function MapView({ device, pumps, searchRegion, cameraCommand, on
       {tiles === 'loading' ? (
         <View style={styles.status} pointerEvents="none">
           <ActivityIndicator size="small" color={t.colors.brandText} />
-          <Text style={styles.statusText}>Loading map...</Text>
+          <Text style={styles.statusText}>{tr('map.loading')}</Text>
         </View>
       ) : null}
       {tiles === 'failed' ? (
         <View style={styles.status}>
-          <Text style={styles.statusText}>Map tiles could not be loaded.</Text>
+          <Text style={styles.statusText}>{tr('nav.tilesFailed')}</Text>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={() => {
@@ -149,7 +155,7 @@ export default function MapView({ device, pumps, searchRegion, cameraCommand, on
               post({ type: 'RETRY_TILES' });
             }}
           >
-            <Text style={styles.retry}>Retry</Text>
+            <Text style={styles.retry}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}

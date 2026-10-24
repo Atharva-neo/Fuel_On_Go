@@ -18,8 +18,9 @@ import { useTheme, type Theme } from '../theme';
 import { StarInput } from './StarRating';
 import { ratingService, type SubmitResult } from '../services/rating.service';
 import { createRatingSubmitter, type RatingDraft, type SubmitState } from '../ratings/submitFlow';
-import { MAX_REVIEW_CHARS, RATING_LABELS, RATING_TAGS, canSubmitRating, formatRatingSummary, toggleTag } from '../ratings/ratingModel';
+import { MAX_REVIEW_CHARS, RATING_TAGS, canSubmitRating, toggleTag } from '../ratings/ratingModel';
 import { useRatingEvents } from '../ratings/ratingEvents';
+import { useT } from '../i18n';
 
 interface Props {
   visible: boolean;
@@ -36,6 +37,7 @@ interface Props {
 // this component only sends the booking id.
 export default function RateSheet({ visible, bookingId, pumpId, pumpName, initial, onClose, onSubmitted }: Props) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const insets = useSafeAreaInsets();
   const bump = useRatingEvents((s) => s.bump);
@@ -67,41 +69,41 @@ export default function RateSheet({ visible, bookingId, pumpId, pumpName, initia
   const { draft } = state;
   const busy = state.status === 'submitting';
   const done = state.status === 'success';
-  const summary = done ? formatRatingSummary((state.result as SubmitResult).summary.average, (state.result as SubmitResult).summary.count) : null;
+  const summary = done ? fmt.rating((state.result as SubmitResult).summary.average, (state.result as SubmitResult).summary.count) : null;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={() => !busy && onClose()} statusBarTranslucent>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={() => !busy && onClose()} accessibilityLabel="Close rating" />
+        <Pressable style={styles.backdrop} onPress={() => !busy && onClose()} accessibilityLabel={tr('rating.closeSheet')} />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.handle} />
 
           {done ? (
             <View style={styles.doneBox} accessibilityLiveRegion="polite">
               <MaterialCommunityIcons name="check-circle" size={44} color={t.colors.brandText} />
-              <Text style={styles.title}>Thanks for your rating</Text>
+              <Text style={styles.title}>{tr('rating.thanks')}</Text>
               {summary?.hasRating ? (
-                <Text style={styles.sub}>{pumpName} is now rated {summary.long}.</Text>
+                <Text style={styles.sub}>{tr('rating.nowRated', { pump: pumpName, summary: summary.long })}</Text>
               ) : null}
               <TouchableOpacity style={[styles.primary, { alignSelf: 'stretch' }]} onPress={onClose} accessibilityRole="button">
-                <Text style={styles.primaryText}>Done</Text>
+                <Text style={styles.primaryText}>{tr('common.done')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Text style={styles.title} accessibilityRole="header">
-                Rate {pumpName}
+                {tr('rating.ratePump', { pump: pumpName })}
               </Text>
-              <Text style={styles.sub}>How was your visit?</Text>
+              <Text style={styles.sub}>{tr('rating.howWasVisit')}</Text>
 
               <View style={styles.starWrap}>
                 <StarInput value={draft.rating} onChange={(rating) => s.setDraft({ rating })} disabled={busy} />
                 <Text style={styles.ratingLabel} accessibilityLiveRegion="polite">
-                  {draft.rating ? `${draft.rating} / 5 - ${RATING_LABELS[draft.rating]}` : 'Tap a star to rate'}
+                  {draft.rating ? tr('rating.starsOfFive', { n: draft.rating, label: tr(`rating.label.${draft.rating}`) }) : tr('rating.tapStar')}
                 </Text>
               </View>
 
-              <Text style={styles.sectionLabel}>What stood out? (optional)</Text>
+              <Text style={styles.sectionLabel}>{tr('rating.whatStoodOut')}</Text>
               <View style={styles.tags}>
                 {RATING_TAGS.map((tag) => {
                   const on = draft.tags.includes(tag.id);
@@ -113,16 +115,16 @@ export default function RateSheet({ visible, bookingId, pumpId, pumpName, initia
                       style={[styles.tag, on && styles.tagOn]}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: on, disabled: busy }}
-                      accessibilityLabel={tag.label}
+                      accessibilityLabel={tr(`rating.tag.${tag.id}`)}
                     >
                       {on ? <MaterialCommunityIcons name="check" size={14} color={t.colors.brandText} /> : null}
-                      <Text style={[styles.tagText, on && styles.tagTextOn]}>{tag.label}</Text>
+                      <Text style={[styles.tagText, on && styles.tagTextOn]}>{tr(`rating.tag.${tag.id}`)}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              <Text style={styles.sectionLabel}>Write a review (optional)</Text>
+              <Text style={styles.sectionLabel}>{tr('rating.writeReview')}</Text>
               <TextInput
                 style={styles.input}
                 multiline
@@ -130,9 +132,9 @@ export default function RateSheet({ visible, bookingId, pumpId, pumpName, initia
                 maxLength={MAX_REVIEW_CHARS}
                 value={draft.review}
                 onChangeText={(review) => s.setDraft({ review })}
-                placeholder="Share details about the service, waiting time or facilities"
+                placeholder={tr('rating.reviewPlaceholder')}
                 placeholderTextColor={t.colors.placeholder}
-                accessibilityLabel="Written review"
+                accessibilityLabel={tr('rating.writtenReview')}
                 textAlignVertical="top"
               />
               <Text style={styles.counter}>
@@ -142,7 +144,7 @@ export default function RateSheet({ visible, bookingId, pumpId, pumpName, initia
               {state.status === 'error' && state.error ? (
                 <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
                   <MaterialCommunityIcons name="alert-circle-outline" size={18} color={t.colors.dangerText} />
-                  <Text style={styles.errorText}>{state.error}</Text>
+                  <Text style={styles.errorText}>{state.errorKey ? tr(state.errorKey) : state.error}</Text>
                 </View>
               ) : null}
 
@@ -156,11 +158,11 @@ export default function RateSheet({ visible, bookingId, pumpId, pumpName, initia
                 {busy ? (
                   <ActivityIndicator color={t.colors.onBrand} />
                 ) : (
-                  <Text style={styles.primaryText}>{state.status === 'error' ? 'Try again' : initial ? 'Update Rating' : 'Submit Rating'}</Text>
+                  <Text style={styles.primaryText}>{state.status === 'error' ? tr('common.tryAgain') : initial ? tr('rating.update') : tr('rating.submit')}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondary} disabled={busy} onPress={onClose} accessibilityRole="button">
-                <Text style={styles.secondaryText}>Not now</Text>
+                <Text style={styles.secondaryText}>{tr('rating.notNow')}</Text>
               </TouchableOpacity>
             </ScrollView>
           )}

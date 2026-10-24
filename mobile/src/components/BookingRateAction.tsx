@@ -6,11 +6,13 @@ import RateSheet from './RateSheet';
 import { StarsDisplay } from './StarRating';
 import { ratingService, type Eligibility } from '../services/rating.service';
 import { rateActionState } from '../ratings/ratingModel';
+import { useT } from '../i18n';
 
 // "Rate this pump" entry shown on completed bookings in the history list. Lets customers
 // who dismissed the first prompt rate later, and shows/edit-links an existing rating.
 export default function BookingRateAction({ bookingId, pumpId, pumpName }: { bookingId: string; pumpId?: string; pumpName: string }) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [elig, setElig] = useState<Eligibility | null>(null);
   const [open, setOpen] = useState(false);
@@ -38,16 +40,16 @@ export default function BookingRateAction({ bookingId, pumpId, pumpName }: { boo
   return (
     <View style={styles.row}>
       {rating ? (
-        <View style={styles.rated} accessible accessibilityLabel={`You rated this pump ${rating.rating} out of 5`}>
+        <View style={styles.rated} accessible accessibilityLabel={tr('rating.youRatedA11y', { rating: rating.rating })}>
           <StarsDisplay average={rating.rating} size={14} />
-          <Text style={styles.ratedText} numberOfLines={1}>Your rating</Text>
+          <Text style={styles.ratedText} numberOfLines={1}>{tr('rating.yourRating')}</Text>
         </View>
       ) : (
         <View style={styles.rated}>
           <View style={styles.iconBox}>
             <MaterialCommunityIcons name="star-outline" size={20} color={t.colors.star} />
           </View>
-          <Text style={styles.ratedText} numberOfLines={1}>Rate this pump</Text>
+          <Text style={styles.ratedText} numberOfLines={1}>{tr('rating.ratePumpShort')}</Text>
         </View>
       )}
       {action === 'rate' || action === 'edit' ? (
@@ -57,8 +59,8 @@ export default function BookingRateAction({ bookingId, pumpId, pumpName }: { boo
           onPress={(e: any) => {
             e?.stopPropagation?.();
             setOpen(true);
-          }} accessibilityRole="button" accessibilityLabel={rating ? 'Edit rating' : 'Rate this pump'}>
-          <Text style={styles.btnText}>{rating ? 'Edit' : 'Rate'}</Text>
+          }} accessibilityRole="button" accessibilityLabel={rating ? tr('rating.editRating') : tr('rating.ratePumpShort')}>
+          <Text style={styles.btnText}>{rating ? tr('rating.editShort') : tr('rating.rateShort')}</Text>
         </TouchableOpacity>
       ) : null}
 

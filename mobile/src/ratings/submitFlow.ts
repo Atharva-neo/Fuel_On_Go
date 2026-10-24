@@ -18,7 +18,19 @@ export interface SubmitState {
   status: SubmitStatus;
   draft: RatingDraft;
   error: string | null;
+  /** Translation key for `error` when it is one of the known messages (the UI localizes it). */
+  errorKey?: string | null;
   result: unknown;
+}
+
+export function submitErrorKey(err: any): string | null {
+  const code = err?.response?.data?.code;
+  if (code === 'NOT_COMPLETED' || code === 'OWN_PUMP' || code === 'EDIT_WINDOW_CLOSED' || code === 'RATINGS_NOT_MIGRATED') return `rating.err.${code}`;
+  if (code === 'NOT_YOUR_BOOKING' || code === 'BOOKING_NOT_FOUND') return 'rating.err.NOT_YOUR_BOOKING';
+  const msg = err?.response?.data?.error;
+  if (msg && err?.response?.status && err.response.status < 500) return null; // server text passes through
+  if (!err?.response) return 'rating.err.offline';
+  return 'rating.err.generic';
 }
 
 export function describeSubmitError(err: any): string {
@@ -59,7 +71,7 @@ export function createRatingSubmitter(opts: {
     async send() {
       if (state.status === 'submitting' || state.status === 'success') return state; // double-tap guard
       if (!canSubmitRating(state.draft)) {
-        emit({ status: 'error', error: 'Choose a star rating first.' });
+        emit({ status: 'error', error: 'Choose a star rating first.', errorKey: 'rating.chooseStar' });
         return state;
       }
       emit({ status: 'submitting', error: null });
@@ -67,7 +79,7 @@ export function createRatingSubmitter(opts: {
         const result = await opts.submit(state.draft);
         emit({ status: 'success', result }); // only now is the UI allowed to say "thank you"
       } catch (err) {
-        emit({ status: 'error', error: describeSubmitError(err) }); // draft untouched
+        emit({ status: 'error', error: describeSubmitError(err), errorKey: submitErrorKey(err) }); // draft untouched
       }
       return state;
     },

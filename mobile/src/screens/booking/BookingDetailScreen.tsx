@@ -14,16 +14,19 @@ import { ArrowLeftIcon, LocationIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RateSheet from '../../components/RateSheet';
 import { classifyBooking } from '../../utils/bookingStatus';
 import { StarsDisplay } from '../../components/StarRating';
 import { ratingService, type Eligibility } from '../../services/rating.service';
+import { useT } from '../../i18n';
 
 
 export default function BookingDetailScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const { bookingId } = route.params;
   const token = useAuthStore((s) => s.token);
@@ -66,17 +69,17 @@ export default function BookingDetailScreen({ route, navigation }: any) {
       setBooking(res.data);
       loadEligibility(res.data);
     } catch (error: any) {
-      Alert.alert('Error', 'Unable to load booking details.');
+      Alert.alert(tr('common.error'), tr('booking.loadFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = async () => {
-    Alert.alert('Cancel Booking', 'Are you sure you want to cancel?', [
-      { text: 'No', style: 'cancel' },
+    Alert.alert(tr('booking.cancelTitle'), tr('booking.cancelConfirm'), [
+      { text: tr('booking.cancelNo'), style: 'cancel' },
       {
-        text: 'Yes, Cancel',
+        text: tr('booking.cancelYes'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -85,15 +88,13 @@ export default function BookingDetailScreen({ route, navigation }: any) {
               data: { refund: 0 },
             });
             fetchBooking();
-            const t = res.data?.trust;
-            const note = t && t.delta < 0
-              ? `
-
-Late cancellation: ${t.delta} trust points (score now ${t.score}).`
+            const trustInfo = res.data?.trust;
+            const note = trustInfo && trustInfo.delta < 0
+              ? `\n\n${tr('booking.lateCancelNote', { delta: trustInfo.delta, score: trustInfo.score })}`
               : '';
-            Alert.alert('Success', `Booking cancelled successfully.${note}`);
+            Alert.alert(tr('common.success'), `${tr('booking.cancelledOk')}${note}`);
           } catch (err: any) {
-            Alert.alert('Error', err?.response?.data?.error || 'Could not cancel booking.');
+            Alert.alert(tr('common.error'), apiErrorMessage(err, tr, 'booking.cancelFailed'));
           }
         },
       },
@@ -118,7 +119,7 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
   const slotTimeForCountdown = slot?.start_time || booking.slot_start;
   const slotStart = new Date(`${slotDateForCountdown}T${slotTimeForCountdown}`);
   const countdownText = Number.isFinite(slotStart.getTime())
-    ? formatDistanceToNowStrict(slotStart, { addSuffix: false })
+    ? fmt.relative(slotStart)
     : '--';
   const qrData = JSON.stringify({
     booking_id: booking.id,
@@ -150,13 +151,13 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
               styles.statusText,
               isAwaitingApproval ? styles.statusTextAmber : isActive ? styles.statusTextPending : isCancelled ? styles.statusTextCancelled : styles.statusTextCompleted,
             ]}>
-              {classifyBooking(booking).label.toUpperCase()}
+              {tr(`status.${classifyBooking(booking).key}`).toUpperCase()}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.headerTitle}>Booking Detail</Text>
-        <Text style={styles.headerSubtitle}>ID: {booking.id.slice(0, 8).toUpperCase()}</Text>
+        <Text style={styles.headerTitle}>{tr('booking.detail')}</Text>
+        <Text style={styles.headerSubtitle}>{tr('booking.idLabel', { id: booking.id.slice(0, 8).toUpperCase() })}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -168,9 +169,9 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
           </View>
 
           <View style={styles.timeBox}>
-            <Text style={styles.timeLabel}>Slot Scheduled</Text>
+            <Text style={styles.timeLabel}>{tr('booking.slotScheduled')}</Text>
             <Text style={styles.timeValue}>
-              {(slot?.slot_date || booking.slot_date)} | {(slot?.start_time || booking.slot_start)?.slice(0, 5)} - {(slot?.end_time || booking.slot_end)?.slice(0, 5)}
+              {fmt.date(String(slot?.slot_date || booking.slot_date))} | {fmt.clock(String(slot?.start_time || booking.slot_start))} - {fmt.clock(String(slot?.end_time || booking.slot_end))}
             </Text>
           </View>
         </View>
@@ -179,27 +180,27 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
           <View style={styles.pendingNotice}>
             <MaterialCommunityIcons name="clock-alert-outline" size={18} color={t.colors.warningText} />
             <Text style={styles.pendingNoticeText}>
-              Waiting for the pump owner to confirm this slot. You'll be able to check in once it's approved.
+              {tr('booking.awaitingNotice')}
             </Text>
           </View>
         )}
 
         {isActive && qr_token && (
           <View style={styles.qrCard}>
-            <Text style={styles.qrTitle}>Show at Station</Text>
+            <Text style={styles.qrTitle}>{tr('booking.showAtStation')}</Text>
             <View style={styles.qrCodeWrapper}>
               <QRCode value={qrData} size={220} color={t.colors.qrForeground} backgroundColor={t.colors.qrBackground} />
             </View>
-            <Text style={styles.qrSubtitle}>Station owner will scan this to verify your booking.</Text>
+            <Text style={styles.qrSubtitle}>{tr('booking.qrHint')}</Text>
           </View>
         )}
 
         {status === 'arrived' && eligFailed ? (
           <View style={styles.rateCard}>
-            <Text style={styles.rateTitle}>Rate this pump</Text>
-            <Text style={styles.rateSub}>We could not check your rating right now.</Text>
+            <Text style={styles.rateTitle}>{tr('rating.ratePumpShort')}</Text>
+            <Text style={styles.rateSub}>{tr('rating.couldNotCheck')}</Text>
             <TouchableOpacity style={styles.rateBtnGhost} onPress={() => loadEligibility(booking)} accessibilityRole="button">
-              <Text style={styles.rateBtnGhostText}>Try again</Text>
+              <Text style={styles.rateBtnGhostText}>{tr('common.tryAgain')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -208,21 +209,21 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
           <View style={styles.rateCard}>
             {elig.rating ? (
               <>
-                <Text style={styles.rateTitle}>Your rating</Text>
+                <Text style={styles.rateTitle}>{tr('rating.yourRating')}</Text>
                 <StarsDisplay average={elig.rating.rating} size={22} />
                 {elig.rating.review ? <Text style={styles.rateSub}>{elig.rating.review}</Text> : null}
                 {elig.rating.editable ? (
                   <TouchableOpacity style={styles.rateBtnGhost} onPress={() => setRateOpen(true)} accessibilityRole="button">
-                    <Text style={styles.rateBtnGhostText}>Edit rating</Text>
+                    <Text style={styles.rateBtnGhostText}>{tr('rating.editRating')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </>
             ) : (
               <>
-                <Text style={styles.rateTitle}>How was {pump?.name || 'your visit'}?</Text>
-                <Text style={styles.rateSub}>Your visit is complete. Rating takes a few seconds and helps other drivers.</Text>
+                <Text style={styles.rateTitle}>{tr('rating.howWasPump', { pump: pump?.name || tr('rating.yourVisit') })}</Text>
+                <Text style={styles.rateSub}>{tr('rating.visitComplete')}</Text>
                 <TouchableOpacity style={styles.rateBtn} onPress={() => setRateOpen(true)} accessibilityRole="button">
-                  <Text style={styles.rateBtnText}>Rate This Pump</Text>
+                  <Text style={styles.rateBtnText}>{tr('rating.ratePumpButton')}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -230,19 +231,19 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
         ) : null}
 
         <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>Payment Summary</Text>
+          <Text style={styles.detailsTitle}>{tr('booking.paymentSummary')}</Text>
           <View style={styles.row}>
-            <Text style={styles.label}>Paid</Text>
-            <Text style={styles.value}>₹{Number(booking.booking_fee || booking.amount_paid_now || 0).toFixed(2)}</Text>
+            <Text style={styles.label}>{tr('booking.paid')}</Text>
+            <Text style={styles.value}>{fmt.rupees(Number(booking.booking_fee || booking.amount_paid_now || 0))}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>Fuel payment at pump</Text>
-            <Text style={styles.value}>{booking.fuel_payment_method === 'upi' ? 'UPI' : 'Cash'}</Text>
+            <Text style={styles.label}>{tr('booking.fuelPaymentAtPump')}</Text>
+            <Text style={styles.value}>{booking.fuel_payment_method === 'upi' ? tr('payment.upi') : tr('payment.cash')}</Text>
           </View>
         </View>
         <View style={styles.countdownRow}>
           <MaterialCommunityIcons name="clock-outline" size={14} color={t.colors.textSecondary} />
-          <Text style={styles.timeLabel}>Starts in {countdownText}</Text>
+          <Text style={styles.timeLabel}>{tr('booking.startsIn', { time: countdownText })}</Text>
         </View>
         <TouchableOpacity
           style={styles.navBtn}
@@ -256,12 +257,12 @@ Late cancellation: ${t.delta} trust points (score now ${t.score}).`
           }
         >
           <MaterialCommunityIcons name="compass-outline" size={16} color={t.colors.onInverse} />
-          <Text style={styles.navBtnText}>Navigate to Pump</Text>
+          <Text style={styles.navBtnText}>{tr('booking.navigateToPump')}</Text>
         </TouchableOpacity>
 
         {canCancel && (
           <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-            <Text style={styles.cancelText}>Cancel Booking</Text>
+            <Text style={styles.cancelText}>{tr('booking.cancelTitle')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

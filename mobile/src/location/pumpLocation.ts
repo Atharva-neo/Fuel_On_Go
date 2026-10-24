@@ -129,7 +129,8 @@ export async function acquireOnce(
   }
 }
 
-export function gpsProblemMessage(reason: Extract<OneShotResult, { ok: false }>['reason']): string {
+export function gpsProblemMessage(reason: Extract<OneShotResult, { ok: false }>['reason'], tr?: (key: string) => string): string {
+  if (tr) return tr(`picker.gps.${['permission_denied', 'permission_blocked', 'services_disabled', 'timeout'].includes(reason) ? reason : 'other'}`);
   switch (reason) {
     case 'permission_denied':
       return 'Location permission was denied. You can still search for the address or place the pin on the map.';

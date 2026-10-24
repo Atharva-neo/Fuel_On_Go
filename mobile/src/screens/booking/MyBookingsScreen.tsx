@@ -14,6 +14,7 @@ import { ChevronRightIcon, CalendarIcon } from '../../components/ui/Icons';
 import { useTheme, type Theme } from '../../theme';
 import BookingRateAction from '../../components/BookingRateAction';
 import { bookingsForTab, classifyBooking } from '../../utils/bookingStatus';
+import { useT } from '../../i18n';
 
 
 type TabType = 'upcoming' | 'completed' | 'cancelled';
@@ -21,11 +22,12 @@ type TabType = 'upcoming' | 'completed' | 'cancelled';
 // Which tab a booking belongs to (and its label) comes from one tested function: see utils/bookingStatus.ts.
 function statusMeta(item: any) {
   const c = classifyBooking(item);
-  return { label: c.label, badge: (c.tone === 'neutral' ? 'blue' : c.tone) as 'green' | 'amber' | 'red' | 'blue' };
+  return { label: c.label, key: c.key, badge: (c.tone === 'neutral' ? 'blue' : c.tone) as 'green' | 'amber' | 'red' | 'blue' };
 }
 
 export default function MyBookingsScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ export default function MyBookingsScreen({ navigation }: any) {
         onPress={() => navigation.navigate('BookingDetail', { bookingId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.pumpName} numberOfLines={1}>{item.pump_name || item.pump?.name || 'Unknown Pump'}</Text>
+          <Text style={styles.pumpName} numberOfLines={1}>{item.pump_name || item.pump?.name || tr('booking.unknownPump')}</Text>
           <View style={[
             styles.statusBadge,
             meta.badge === 'green' && styles.statusGreen,
@@ -81,22 +83,22 @@ export default function MyBookingsScreen({ navigation }: any) {
               meta.badge === 'red' && styles.statusTextCancelled,
               meta.badge === 'blue' && styles.statusTextCompleted,
             ]}>
-              {meta.label.toUpperCase()}
+              {tr(`status.${meta.key}`).toUpperCase()}
             </Text>
           </View>
         </View>
 
         <View style={styles.cardBody}>
-          <Text style={styles.timeText}>{item.slot_date} | {String(item.slot_start || '').slice(0, 5)}</Text>
-          <Text style={styles.priceText}>Fee: ₹{Number(item.booking_fee || item.amount_paid_now || 0).toFixed(2)}</Text>
+          <Text style={styles.timeText}>{fmt.date(String(item.slot_date))} | {fmt.clock(String(item.slot_start || ''))}</Text>
+          <Text style={styles.priceText}>{tr('booking.fee', { amount: fmt.rupees(Number(item.booking_fee || item.amount_paid_now || 0)) })}</Text>
         </View>
 
         {item.status === 'arrived' ? (
-          <BookingRateAction bookingId={item.id} pumpId={item.pump_id} pumpName={item.pump_name || item.pump?.name || 'this pump'} />
+          <BookingRateAction bookingId={item.id} pumpId={item.pump_id} pumpName={item.pump_name || item.pump?.name || tr('booking.thisPump')} />
         ) : null}
 
         <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailsText}>View Details</Text>
+          <Text style={styles.viewDetailsText}>{tr('booking.viewDetails')}</Text>
           <ChevronRightIcon size={16} color={t.colors.brandText} />
         </View>
       </TouchableOpacity>
@@ -114,7 +116,7 @@ export default function MyBookingsScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>{tr('booking.title')}</Text>
       </View>
 
       <View style={styles.tabsContainer}>
@@ -125,7 +127,7 @@ export default function MyBookingsScreen({ navigation }: any) {
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tr(`booking.${tab}`)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -136,8 +138,8 @@ export default function MyBookingsScreen({ navigation }: any) {
           <View style={styles.emptyIconCircle}>
             <CalendarIcon size={32} color={t.colors.textMuted} />
           </View>
-          <Text style={styles.emptyTitle}>No Bookings Found</Text>
-          <Text style={styles.emptySubtitle}>You have no {activeTab} bookings at the moment.</Text>
+          <Text style={styles.emptyTitle}>{tr('booking.empty')}</Text>
+          <Text style={styles.emptySubtitle}>{tr(`booking.empty${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`)}</Text>
         </View>
       ) : (
         <FlatList

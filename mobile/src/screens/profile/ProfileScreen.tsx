@@ -16,17 +16,14 @@ import { useAuthStore } from '../../store/authStore';
 import { CheckIcon, ChevronRightIcon, InfoIcon } from '../../components/ui/Icons';
 import api from '../../config/api';
 import ThemeToggle from '../../components/ThemeToggle';
+import LanguageSelector from '../../components/LanguageSelector';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
-
-const EVENT_TITLES: Record<string, string> = {
-  cancellation: 'Booking cancelled',
-  no_show: 'Missed booking (no-show)',
-  dispute_reversal: 'Penalty reversed after review',
-};
 
 export default function ProfileScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   // Band colours come from theme tokens; the label text always names the band too.
   const bandColors: Record<string, { fill: string; text: string; tint: string }> = {
@@ -105,13 +102,15 @@ export default function ProfileScreen({ navigation }: any) {
     load();
   }, [token]);
 
+  const translateEvent = (type: string) => (['cancellation', 'no_show', 'dispute_reversal'].includes(type) ? tr(`trust.event.${type}`) : type);
+
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => {
+    Alert.alert(tr('profile.logoutTitle'), tr('profile.logoutConfirm'), [
+      { text: tr('common.cancel'), style: 'cancel' },
+      { text: tr('profile.logout'), style: 'destructive', onPress: async () => {
           // RootGate watches token — clearing it automatically shows WelcomeScreen
           await logout();
-        } 
+        }
       },
     ]);
   };
@@ -125,12 +124,12 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.avatarCircle}>
           <Text style={styles.avatarInitial}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
         </View>
-        <Text style={styles.name}>{user?.name || 'User'}</Text>
+        <Text style={styles.name}>{user?.name || tr('profile.defaultName')}</Text>
         <Text style={styles.phone}>{user?.phone || '+91 00000 00000'}</Text>
 
         <View style={styles.trustBadge}>
           <CheckIcon size={14} color={t.colors.brandText} />
-          <Text style={styles.trustText}>Verified Profile</Text>
+          <Text style={styles.trustText}>{tr('profile.verified')}</Text>
         </View>
       </View>
 
@@ -142,24 +141,24 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{stats.total_bookings}</Text>
-            <Text style={styles.statLabel}>Total Bookings</Text>
+            <Text style={styles.statLabel}>{tr('profile.totalBookings')}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{stats.no_show_count}</Text>
-            <Text style={styles.statLabel}>No-shows</Text>
+            <Text style={styles.statLabel}>{tr('profile.noShows')}</Text>
           </View>
         </View>
       )}
 
       <View style={styles.trustCard}>
-        <Text style={styles.sectionTitle}>Trust Score</Text>
+        <Text style={styles.sectionTitle}>{tr('trust.title')}</Text>
         {trustLoading && !trust ? (
           <ActivityIndicator color={t.colors.brandText} />
         ) : trustError && !trust ? (
           <View style={styles.trustErrorBox}>
-            <Text style={styles.trustErrorText}>Couldn't load your trust score.</Text>
+            <Text style={styles.trustErrorText}>{tr('trust.loadFailed')}</Text>
             <TouchableOpacity style={styles.trustRetry} onPress={loadTrust}>
-              <Text style={styles.trustRetryText}>Retry</Text>
+              <Text style={styles.trustRetryText}>{tr('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : trust ? (
@@ -167,23 +166,23 @@ export default function ProfileScreen({ navigation }: any) {
             <View style={styles.trustTop}>
               <Text style={[styles.trustScore, { color: bandColors[trust.band].text }]}>{trust.score}</Text>
               <View style={[styles.trustChip, { backgroundColor: bandColors[trust.band].tint }]}>
-                <Text style={[styles.trustChipText, { color: bandColors[trust.band].text }]}>{trust.label}</Text>
+                <Text style={[styles.trustChipText, { color: bandColors[trust.band].text }]}>{tr(`trust.band.${trust.band}`)}</Text>
               </View>
             </View>
             <View style={styles.trustTrack}>
               <View style={[styles.trustFill, { width: `${trust.score}%`, backgroundColor: bandColors[trust.band].fill }]} />
             </View>
-            {trustError ? <Text style={styles.trustStale}>Showing last known score. Pull to retry by reopening.</Text> : null}
+            {trustError ? <Text style={styles.trustStale}>{tr('trust.stale')}</Text> : null}
             {trust.recent_events.length === 0 ? (
               <Text style={styles.trustEmpty}>
-                {trust.history_available ? 'No score changes yet. Keep showing up on time!' : 'Score history is not available yet.'}
+                {trust.history_available ? tr('trust.empty') : tr('trust.historyUnavailable')}
               </Text>
             ) : (
               trust.recent_events.map((e) => (
                 <View key={e.id} style={styles.trustEvent}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.trustEventTitle}>{EVENT_TITLES[e.event_type] || e.event_type}{e.reversed ? ' (reversed)' : ''}</Text>
-                    <Text style={styles.trustEventDate}>{new Date(e.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.trustEventTitle}>{translateEvent(e.event_type)}{e.reversed ? ` ${tr('trust.reversed')}` : ''}</Text>
+                    <Text style={styles.trustEventDate}>{fmt.date(String(e.created_at).slice(0, 10))}</Text>
                   </View>
                   <Text style={[styles.trustDelta, e.delta < 0 ? { color: t.colors.dangerText } : e.delta > 0 ? { color: t.colors.brandText } : null]}>
                     {e.delta > 0 ? `+${e.delta}` : e.delta}
@@ -196,14 +195,19 @@ export default function ProfileScreen({ navigation }: any) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Settings</Text>
-        
+        <Text style={styles.sectionTitle}>{tr('profile.language')}</Text>
+        <LanguageSelector />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{tr('profile.accountSettings')}</Text>
+
         <TouchableOpacity style={styles.menuItem} onPress={() => setPrefOpen(true)}>
           <View style={styles.menuItemLeft}>
             <View style={[styles.menuIconBox, { backgroundColor: t.colors.brandTint }]}>
               <InfoIcon size={18} color={t.colors.brandText} />
             </View>
-            <Text style={styles.menuItemText}>Preferences</Text>
+            <Text style={styles.menuItemText}>{tr('profile.preferences')}</Text>
           </View>
           <ChevronRightIcon size={16} color={t.colors.textMuted} />
         </TouchableOpacity>
@@ -213,33 +217,33 @@ export default function ProfileScreen({ navigation }: any) {
             <View style={[styles.menuIconBox, { backgroundColor: t.colors.infoTint }]}>
               <InfoIcon size={18} color={t.colors.infoText} />
             </View>
-            <Text style={styles.menuItemText}>Help & Support</Text>
+            <Text style={styles.menuItemText}>{tr('profile.helpSupport')}</Text>
           </View>
           <ChevronRightIcon size={16} color={t.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Log Out</Text>
+        <Text style={styles.logoutText}>{tr('profile.logout')}</Text>
       </TouchableOpacity>
 
       {/* Preferences Modal */}
       <Modal visible={prefOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Preferences</Text>
-            
+            <Text style={styles.modalTitle}>{tr('profile.preferences')}</Text>
+
             <View style={styles.prefRow}>
-              <Text style={styles.prefLabel}>Push Notifications</Text>
+              <Text style={styles.prefLabel}>{tr('profile.pushNotifications')}</Text>
               <Switch value={true} trackColor={{ true: t.colors.brandText, false: t.colors.textMuted }} />
             </View>
             <View style={styles.prefRow}>
-              <Text style={styles.prefLabel}>SMS Alerts</Text>
+              <Text style={styles.prefLabel}>{tr('profile.smsAlerts')}</Text>
               <Switch value={false} trackColor={{ true: t.colors.brandText, false: t.colors.textMuted }} />
             </View>
 
             <TouchableOpacity style={styles.modalBtn} onPress={() => setPrefOpen(false)}>
-              <Text style={styles.modalBtnText}>Done</Text>
+              <Text style={styles.modalBtnText}>{tr('common.done')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -249,12 +253,12 @@ export default function ProfileScreen({ navigation }: any) {
       <Modal visible={helpOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Help & Support</Text>
-            <Text style={styles.helpText}>Call us at: +91 800-000-0000</Text>
-            <Text style={styles.helpSub}>Available 9 AM to 6 PM</Text>
-            
+            <Text style={styles.modalTitle}>{tr('profile.helpSupport')}</Text>
+            <Text style={styles.helpText}>{tr('profile.callUs')}</Text>
+            <Text style={styles.helpSub}>{tr('profile.hours')}</Text>
+
             <TouchableOpacity style={styles.modalBtn} onPress={() => setHelpOpen(false)}>
-              <Text style={styles.modalBtnText}>Close</Text>
+              <Text style={styles.modalBtnText}>{tr('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

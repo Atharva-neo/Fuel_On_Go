@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
+import { apiErrorMessage } from '../i18n/errors';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 function sanitizePhone(v: string) {
   return v.replace(/\D/g, '').slice(0, 10);
@@ -10,6 +12,7 @@ function sanitizePhone(v: string) {
 
 export default function UserAuthScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +22,7 @@ export default function UserAuthScreen({ navigation }: any) {
 
   const handleContinue = async () => {
     if (phone.length !== 10) {
-      Alert.alert('Invalid phone', 'Please enter a valid 10-digit number.');
+      Alert.alert(tr('auth.invalidPhoneTitle'), tr('auth.invalidPhoneBody'));
       return;
     }
 
@@ -46,13 +49,7 @@ export default function UserAuthScreen({ navigation }: any) {
         error?.response?.data || error?.message || error
       );
 
-      Alert.alert(
-        "Error",
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        JSON.stringify(error)
-      );
+      Alert.alert(tr('common.error'), apiErrorMessage(error, tr));
     } finally {
       setLoading(false);
     }
@@ -60,8 +57,8 @@ export default function UserAuthScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Vehicle Owner Login</Text>
-      <Text style={styles.subtitle}>Enter your phone number to continue</Text>
+      <Text style={styles.title}>{tr('auth.vehicleOwnerLogin')}</Text>
+      <Text style={styles.subtitle}>{tr('auth.vehicleOwnerHint')}</Text>
 
       <View style={styles.phoneRow}>
         <Text style={styles.prefix}>+91</Text>
@@ -77,7 +74,7 @@ export default function UserAuthScreen({ navigation }: any) {
       </View>
 
       <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleContinue} disabled={loading}>
-        {loading ? <ActivityIndicator color={t.colors.text} /> : <Text style={styles.buttonText}>Continue</Text>}
+        {loading ? <ActivityIndicator color={t.colors.text} /> : <Text style={styles.buttonText}>{tr('common.continue')}</Text>}
       </TouchableOpacity>
     </View>
   );

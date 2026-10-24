@@ -26,7 +26,11 @@ import PumpReviewsScreen from '../screens/pump/PumpReviewsScreen';
 
 import AdminNavigator from './AdminNavigator';
 import { useAuthStore } from '../store/authStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarMetrics } from './tabBarMetrics';
+import { slideScreenOptions, swipeLayout, useReduceMotion } from './swipeTabs';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -74,13 +78,25 @@ const HomeStackNavigator = () => (
 
 const UserTabs = () => {
   const t = useTheme();
+  const { tr } = useT();
+  const reduceMotion = useReduceMotion();
+  const insets = useSafeAreaInsets();
   return (
   <Tab.Navigator
+    screenLayout={swipeLayout(['Home'])}
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarStyle: { backgroundColor: t.colors.surface, borderTopColor: t.colors.border },
+      ...slideScreenOptions(reduceMotion),
+      tabBarStyle: {
+        backgroundColor: t.colors.surface,
+        borderTopWidth: 1,
+        borderTopColor: t.colors.border,
+        elevation: 10,
+        ...tabBarMetrics(insets.bottom),
+      },
       tabBarActiveTintColor: t.colors.brandText,
       tabBarInactiveTintColor: t.colors.textMuted,
+      tabBarLabelStyle: { fontWeight: '700', fontSize: 11, letterSpacing: 0.3 },
       tabBarIcon: ({ color, size }) => {
         let iconName: any;
         if (route.name === 'Home') iconName = 'home-variant';
@@ -93,17 +109,17 @@ const UserTabs = () => {
     <Tab.Screen
       name="Home"
       component={HomeStackNavigator}
-      options={{ tabBarLabel: 'Home' }}
+      options={{ tabBarLabel: tr('nav.home'), tabBarAccessibilityLabel: tr('nav.home') }}
     />
     <Tab.Screen
       name="MyBookings"
       component={MyBookingsScreen}
-      options={{ tabBarLabel: 'Bookings' }}
+      options={{ tabBarLabel: tr('nav.bookings'), tabBarAccessibilityLabel: tr('nav.bookings') }}
     />
     <Tab.Screen
       name="Profile"
       component={ProfileScreen}
-      options={{ tabBarLabel: 'Profile' }}
+      options={{ tabBarLabel: tr('nav.profile'), tabBarAccessibilityLabel: tr('nav.profile') }}
     />
   </Tab.Navigator>
   );
@@ -129,10 +145,11 @@ const RootGate = () => {
   const styles = useMemo(() => createStyles(t), [t]);
   const { token, user, loading, rehydrateAuth } = useAuthStore();
   const [bootLoading, setBootLoading] = useState(true);
-  const [status, setStatus] = useState('Initializing...');
+  const { tr } = useT();
+  const [status, setStatus] = useState<'init' | 'checking' | 'ready' | 'error'>('init');
 
   useEffect(() => {
-    setStatus('Checking session...');
+    setStatus('checking');
 
     const timeout = setTimeout(() => {
       setBootLoading(false);
@@ -140,10 +157,10 @@ const RootGate = () => {
 
     rehydrateAuth()
       .then(() => {
-        setStatus('Ready');
+        setStatus('ready');
       })
       .catch(() => {
-        setStatus('Error loading session');
+        setStatus('error');
       })
       .finally(() => {
         clearTimeout(timeout);
@@ -158,7 +175,7 @@ const RootGate = () => {
       <View style={styles.loaderWrap}>
         <SplashScreen />
         <ActivityIndicator size="small" color={t.colors.brandText} style={styles.spinner} />
-        <Text style={styles.status}>{status}</Text>
+        <Text style={styles.status}>{tr(`boot.${status}`)}</Text>
       </View>
     );
   }

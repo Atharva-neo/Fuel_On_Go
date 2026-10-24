@@ -124,7 +124,8 @@ export function homeMapHtml(t: Theme) {
       });
     }
 
-    function updatePumps(pumps) {
+    function updatePumps(pumps, labels) {
+      var lb = labels || {};
       clusterGroup.clearLayers();
       (pumps || []).forEach(function(pump) {
         var lat = Number(pump.lat);
@@ -140,13 +141,13 @@ export function homeMapHtml(t: Theme) {
         var marker = L.marker([lat, lng], { icon: icon });
         var details = [];
         if (Number.isFinite(Number(pump.available_slots_today))) {
-          details.push(escapeHtml(pump.available_slots_today) + ' slots available');
+          details.push(escapeHtml(pump.available_slots_today) + (lb.slotsSuffix || ' slots available'));
         }
         if (Number.isFinite(Number(pump.distance_km))) {
-          details.push(escapeHtml(Number(pump.distance_km).toFixed(1)) + ' km straight-line');
+          details.push(escapeHtml(Number(pump.distance_km).toFixed(1)) + (lb.kmSuffix || ' km straight-line'));
         }
         marker.bindPopup(
-          '<div class="pump-popup"><b>' + escapeHtml(pump.name || 'CNG Pump') + '</b><br/>' +
+          '<div class="pump-popup"><b>' + escapeHtml(pump.name || lb.pumpFallback || 'CNG Pump') + '</b><br/>' +
           escapeHtml(pump.address || '') +
           (details.length ? '<br/><span>' + details.join(' - ') + '</span>' : '') +
           '</div>'
@@ -169,7 +170,7 @@ export function homeMapHtml(t: Theme) {
 
       if (d.type === 'UPDATE_LOCATION') updateUserLocation(parseFloat(d.lat), parseFloat(d.lng), parseFloat(d.accuracy), !!d.live);
       if (d.type === 'CENTER') centerOn(parseFloat(d.lat), parseFloat(d.lng), parseFloat(d.zoom), !!d.animate);
-      if (d.type === 'UPDATE_PUMPS') updatePumps(d.pumps || []);
+      if (d.type === 'UPDATE_PUMPS') updatePumps(d.pumps || [], d.labels);
       if (d.type === 'ZOOM_REGION') zoomToRegion(d.bbox);
       if (d.type === 'THEME') window.applyTheme(d.vars);
       if (d.type === 'RETRY_TILES') window.retryTiles();

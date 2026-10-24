@@ -2,11 +2,13 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
-import { RATING_LABELS, starFills, stepRating } from '../ratings/ratingModel';
+import {  starFills, stepRating } from '../ratings/ratingModel';
+import { useT } from '../i18n';
 
 // Read-only stars for averages (supports half stars).
 export function StarsDisplay({ average, size = 16 }: { average: number | null; size?: number }) {
   const t = useTheme();
+  const { tr } = useT();
   const fills = starFills(average);
   return (
     <View style={{ flexDirection: 'row', gap: 2 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -33,6 +35,7 @@ interface InputProps {
 // Accessible as one adjustable control (swipe up/down, arrow keys) and as five focusable buttons.
 export function StarInput({ value, onChange, size = 40, disabled }: InputProps) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(), []);
   const onKeyDown = (e: any) => {
     const key = e?.nativeEvent?.key ?? e?.key;
@@ -48,7 +51,7 @@ export function StarInput({ value, onChange, size = 40, disabled }: InputProps) 
       style={styles.row}
       accessible={false}
       accessibilityRole="radiogroup"
-      accessibilityLabel="Star rating"
+      accessibilityLabel={tr('rating.starRating')}
       {...({ onKeyDown } as any)}
     >
       {[1, 2, 3, 4, 5].map((n) => {
@@ -61,7 +64,7 @@ export function StarInput({ value, onChange, size = 40, disabled }: InputProps) 
             hitSlop={4}
             style={({ pressed }) => [styles.star, { width: size + 8, height: size + 8 }, pressed && { opacity: 0.6 }]}
             accessibilityRole="radio"
-            accessibilityLabel={`${n} ${n === 1 ? 'star' : 'stars'}, ${RATING_LABELS[n]}`}
+            accessibilityLabel={`${tr('rating.starCount', { count: n })}, ${tr(`rating.label.${n}`)}`}
             accessibilityState={{ selected: value === n, disabled: !!disabled }}
             accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
             onAccessibilityAction={(e) => onChange(stepRating(value, e.nativeEvent.actionName === 'increment' ? 1 : -1))}

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarMetrics } from './tabBarMetrics';
 import { slideScreenOptions, swipeLayout, useReduceMotion } from './swipeTabs';
 import { useTheme } from '../theme';
+import { useT } from '../i18n';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -22,6 +23,7 @@ const Stack = createNativeStackNavigator();
 const AdminTabs = () => {
   const t = useTheme();
   const reduceMotion = useReduceMotion();
+  const { tr } = useT();
   const insets = useSafeAreaInsets();
   return (
   <Tab.Navigator
@@ -57,22 +59,22 @@ const AdminTabs = () => {
     <Tab.Screen
       name="AdminDashboard"
       component={AdminDashboardScreen}
-      options={{ tabBarLabel: 'Dashboard' }}
+      options={{ tabBarLabel: tr('nav.dashboard'), tabBarAccessibilityLabel: tr('nav.dashboard') }}
     />
     <Tab.Screen
       name="ScanQR"
       component={QRScannerScreen}
-      options={{ tabBarLabel: 'Scan QR' }}
+      options={{ tabBarLabel: tr('nav.scanQr'), tabBarAccessibilityLabel: tr('nav.scanQr') }}
     />
     <Tab.Screen
       name="AdminBookings"
       component={AdminBookingsScreen}
-      options={{ tabBarLabel: 'Bookings' }}
+      options={{ tabBarLabel: tr('nav.bookings'), tabBarAccessibilityLabel: tr('nav.bookings') }}
     />
     <Tab.Screen
       name="SlotManagement"
       component={SlotManagementScreen}
-      options={{ tabBarLabel: 'Slots' }}
+      options={{ tabBarLabel: tr('nav.slots'), tabBarAccessibilityLabel: tr('nav.slots') }}
     />
   </Tab.Navigator>
   );

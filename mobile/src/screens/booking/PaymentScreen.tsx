@@ -11,12 +11,15 @@ import {
 import { bookingService } from '../../services/booking.service';
 import { ArrowLeftIcon, CalendarIcon, InfoIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 const BOOKING_FEE = 50; // Fixed ₹50 booking fee
 
 export default function PaymentScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const { pump, slot, fuel_payment_method } = route.params || {};
   const [processing, setProcessing] = useState(false);
@@ -24,9 +27,9 @@ export default function PaymentScreen({ route, navigation }: any) {
   if (!pump || !slot) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Missing booking details. Please go back and try again.</Text>
+        <Text style={styles.errorText}>{tr('payment.missing')}</Text>
         <TouchableOpacity style={styles.backBtnFull} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{tr('payment.goBack')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -71,10 +74,7 @@ export default function PaymentScreen({ route, navigation }: any) {
         },
       });
     } catch (error: any) {
-      Alert.alert(
-        'Payment Failed',
-        error?.response?.data?.error || error?.message || 'Something went wrong. Please try again.'
-      );
+      Alert.alert(tr('payment.failedTitle'), apiErrorMessage(error, tr, 'payment.failedBody'));
     } finally {
       setProcessing(false);
     }
@@ -87,7 +87,7 @@ export default function PaymentScreen({ route, navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeftIcon size={24} color={t.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Complete Booking</Text>
+        <Text style={styles.headerTitle}>{tr('payment.complete')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -99,33 +99,33 @@ export default function PaymentScreen({ route, navigation }: any) {
           <View style={styles.slotTimeRow}>
             <CalendarIcon size={14} color={t.colors.brandText} />
             <Text style={styles.slotTime}>
-              {slotDate}  ·  {slotStart} – {slotEnd}
+              {fmt.date(slotDate)}  ·  {fmt.clock(slotStart)} – {fmt.clock(slotEnd)}
             </Text>
           </View>
         </View>
 
         {/* Bill Summary */}
-        <Text style={styles.sectionTitle}>Booking Fee</Text>
+        <Text style={styles.sectionTitle}>{tr('payment.bookingFee')}</Text>
         <View style={styles.billCard}>
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Slot booking fee</Text>
-            <Text style={styles.billValue}>₹{BOOKING_FEE.toFixed(2)}</Text>
+            <Text style={styles.billLabel}>{tr('payment.slotFee')}</Text>
+            <Text style={styles.billValue}>{fmt.rupees(BOOKING_FEE)}</Text>
           </View>
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>CNG fill amount</Text>
-            <Text style={styles.billValue}>Pay at pump ({paymentMethod === 'upi' ? 'UPI' : 'Cash'})</Text>
+            <Text style={styles.billLabel}>{tr('payment.cngAmount')}</Text>
+            <Text style={styles.billValue}>{tr('payment.payAtPump', { method: paymentMethod === 'upi' ? tr('payment.upi') : tr('payment.cash') })}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.billRow}>
-            <Text style={styles.billTotal}>Pay Now</Text>
-            <Text style={styles.billTotalValue}>₹{BOOKING_FEE.toFixed(2)}</Text>
+            <Text style={styles.billTotal}>{tr('payment.payNow')}</Text>
+            <Text style={styles.billTotalValue}>{fmt.rupees(BOOKING_FEE)}</Text>
           </View>
         </View>
 
         <View style={styles.simulationNote}>
           <InfoIcon size={14} color={t.colors.warningText} />
           <Text style={styles.simulationNoteText}>
-            Payment simulation enabled — no real charge will occur.
+            {tr('payment.simulation')}
           </Text>
         </View>
       </ScrollView>
@@ -140,11 +140,11 @@ export default function PaymentScreen({ route, navigation }: any) {
           {processing ? (
             <View style={styles.processingRow}>
               <ActivityIndicator color={t.colors.onInverse} size="small" />
-              <Text style={styles.payText}>Processing...</Text>
+              <Text style={styles.payText}>{tr('payment.processing')}</Text>
             </View>
           ) : (
             <Text style={styles.payText}>
-              Simulate Payment · ₹{BOOKING_FEE.toFixed(2)}
+              {tr('payment.simulate', { amount: fmt.rupees(BOOKING_FEE) })}
             </Text>
           )}
         </TouchableOpacity>

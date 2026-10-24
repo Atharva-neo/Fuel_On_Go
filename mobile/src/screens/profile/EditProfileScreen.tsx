@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fontSize, radius, spacing } from '../../theme/stitch';
 import { useAuthStore } from '../../store/authStore';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 export default function EditProfileScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const { user, updateUser } = useAuthStore();
   const [name, setName] = useState(user?.name ?? '');
@@ -15,7 +17,7 @@ export default function EditProfileScreen({ navigation }: any) {
 
   const onSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Name required', 'Please enter your name.');
+      Alert.alert(tr('editProfile.nameRequired'), tr('editProfile.nameRequiredBody'));
       return;
     }
 
@@ -25,20 +27,20 @@ export default function EditProfileScreen({ navigation }: any) {
       vehicle_number: vehicleNumber.trim().toUpperCase() || null,
     });
 
-    Alert.alert('Saved', 'Profile updated successfully.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
+    Alert.alert(tr('editProfile.saved'), tr('editProfile.savedBody'), [
+      { text: tr('common.ok'), onPress: () => navigation.goBack() },
     ]);
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <Text style={styles.title}>Edit Profile</Text>
+        <Text style={styles.title}>{tr('editProfile.title')}</Text>
 
-        <Text style={styles.label}>Full Name</Text>
+        <Text style={styles.label}>{tr('editProfile.fullName')}</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} />
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{tr('editProfile.email')}</Text>
         <TextInput
           style={styles.input}
           value={email ?? ''}
@@ -47,7 +49,7 @@ export default function EditProfileScreen({ navigation }: any) {
           autoCapitalize="none"
         />
 
-        <Text style={styles.label}>Vehicle Number</Text>
+        <Text style={styles.label}>{tr('editProfile.vehicleNumber')}</Text>
         <TextInput
           style={styles.input}
           value={vehicleNumber ?? ''}
@@ -56,7 +58,7 @@ export default function EditProfileScreen({ navigation }: any) {
         />
 
         <TouchableOpacity style={styles.button} onPress={onSave}>
-          <Text style={styles.buttonText}>Save Changes</Text>
+          <Text style={styles.buttonText}>{tr('common.save')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

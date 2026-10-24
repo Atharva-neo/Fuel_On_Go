@@ -12,22 +12,25 @@ import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { LocationIcon, ChevronRightIcon, CheckIcon, CalendarIcon } from '../../components/ui/Icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ThemeToggle from '../../components/ThemeToggle';
+import OverflowMenu from '../../components/OverflowMenu';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 export default function AdminDashboardScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const logout = useAuthStore((s) => s.logout);
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      tr('menu.logoutTitle'),
+      tr('menu.logoutBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: tr('menu.logout'),
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -49,7 +52,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
       const response = await api.get('/admin/dashboard');
       setDashData(response.data?.data || null);
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Connection failed. Check your network.');
+      setError(apiErrorMessage(err, tr, 'dash.connectionHint'));
     } finally {
       setLoading(false);
     }
@@ -68,17 +71,17 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (error) {
     return (
       <View style={styles.loader}>
-        <ThemeToggle style={{ position: 'absolute', top: 52, right: 20 }} />
-        <Text style={styles.errorTitle}>Connection Failed</Text>
-        <Text style={styles.errorMsg}>{error || 'No data available.'}</Text>
+        <OverflowMenu style={{ position: 'absolute', top: 52, right: 20 }} offsetTop={60} />
+        <Text style={styles.errorTitle}>{tr('dash.connectionFailed')}</Text>
+        <Text style={styles.errorMsg}>{error || tr('dash.noData')}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchDashboard}>
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{tr('common.retry')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleLogout}
           style={[styles.retryBtn, { backgroundColor: t.colors.dangerTint, marginTop: 16 }]}
         >
-          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>Logout</Text>
+          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>{tr('menu.logout')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -87,16 +90,16 @@ export default function AdminDashboardScreen({ navigation }: any) {
   if (!dashData?.pump) {
     return (
       <View style={styles.loader}>
-        <ThemeToggle style={{ position: 'absolute', top: 52, right: 20 }} />
+        <OverflowMenu style={{ position: 'absolute', top: 52, right: 20 }} offsetTop={60} />
         <TouchableOpacity
           onPress={handleLogout}
           style={[styles.retryBtn, { backgroundColor: t.colors.dangerTint, marginBottom: 32 }]}
         >
-          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>Logout</Text>
+          <Text style={[styles.retryText, { color: t.colors.dangerText }]}>{tr('menu.logout')}</Text>
         </TouchableOpacity>
-        <Text style={styles.errorTitle}>No pump registered yet.</Text>
+        <Text style={styles.errorTitle}>{tr('dash.noPump')}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.navigate('AddPump')}>
-          <Text style={styles.retryText}>+ Register Your CNG Pump</Text>
+          <Text style={styles.retryText}>{tr('dash.registerPump')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -107,14 +110,8 @@ export default function AdminDashboardScreen({ navigation }: any) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerGreeting}>Station Dashboard</Text>
-          <ThemeToggle size={20} style={{ marginLeft: 'auto', marginRight: 10, width: 40, height: 40 }} />
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={styles.logoutBtn}
-          >
-            <Text style={styles.logoutBtnText}>Logout</Text>
-          </TouchableOpacity>
+          <Text style={styles.headerGreeting} numberOfLines={1}>{tr('dash.title')}</Text>
+          <OverflowMenu style={{ marginLeft: 'auto' }} offsetTop={70} />
         </View>
 
         <Text style={styles.pumpName}>{pump.name}</Text>
@@ -122,33 +119,33 @@ export default function AdminDashboardScreen({ navigation }: any) {
 
         <View style={styles.liveStatus}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveText}>Accepting Bookings</Text>
+          <Text style={styles.liveText}>{tr('dash.accepting')}</Text>
         </View>
       </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statCardFull}>
-          <Text style={styles.statLabel}>Today's Revenue</Text>
+          <Text style={styles.statLabel}>{tr('dash.todaysRevenue')}</Text>
           <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
-            ₹{Number(stats?.revenue_collected || 0).toFixed(2)}
+            {fmt.rupees(Number(stats?.revenue_collected || 0))}
           </Text>
         </View>
       </View>
       <View style={[styles.statsGrid, { paddingTop: 0 }]}>
         <View style={styles.statCard}>
-          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>Total Bookings</Text>
+          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>{tr('dash.totalBookings')}</Text>
           <Text style={styles.statValueHighlight}>{Number(stats?.booked || 0)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>No Shows</Text>
+          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>{tr('dash.noShows')}</Text>
           <Text style={[styles.statValueHighlight, { color: t.colors.dangerText }]}>{Number(stats?.no_shows || 0)}</Text>
         </View>
       </View>
 
       <View style={styles.actionsSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>{tr('dash.quickActions')}</Text>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionCard}
           onPress={() => navigation.navigate('ScanQR')}
         >
@@ -156,8 +153,8 @@ export default function AdminDashboardScreen({ navigation }: any) {
             <CheckIcon size={24} color={t.colors.brandText} />
           </View>
           <View style={styles.actionTextContent}>
-            <Text style={styles.actionTitle}>Scan QR Code</Text>
-            <Text style={styles.actionSubtitle}>Verify arriving customers</Text>
+            <Text style={styles.actionTitle}>{tr('dash.scanQr')}</Text>
+            <Text style={styles.actionSubtitle}>{tr('dash.scanQrSub')}</Text>
           </View>
           <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
@@ -171,13 +168,13 @@ export default function AdminDashboardScreen({ navigation }: any) {
             <MaterialCommunityIcons name="star-outline" size={24} color={t.colors.warningText} />
           </View>
           <View style={styles.actionTextContent}>
-            <Text style={styles.actionTitle}>Customer Feedback</Text>
-            <Text style={styles.actionSubtitle}>Ratings and reviews for your pump</Text>
+            <Text style={styles.actionTitle}>{tr('dash.feedback')}</Text>
+            <Text style={styles.actionSubtitle}>{tr('dash.feedbackSub')}</Text>
           </View>
           <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionCard}
           onPress={() => navigation.navigate('SlotManagement')}
         >
@@ -185,8 +182,8 @@ export default function AdminDashboardScreen({ navigation }: any) {
             <CalendarIcon size={24} color={t.colors.infoText} />
           </View>
           <View style={styles.actionTextContent}>
-            <Text style={styles.actionTitle}>Manage Slots</Text>
-            <Text style={styles.actionSubtitle}>Update capacity & timings</Text>
+            <Text style={styles.actionTitle}>{tr('dash.manageSlots')}</Text>
+            <Text style={styles.actionSubtitle}>{tr('dash.manageSlotsSub')}</Text>
           </View>
           <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>
@@ -199,8 +196,8 @@ export default function AdminDashboardScreen({ navigation }: any) {
             <MaterialCommunityIcons name="pencil-outline" size={24} color={t.colors.warningText} />
           </View>
           <View style={styles.actionTextContent}>
-            <Text style={styles.actionTitle}>Edit Pump Details</Text>
-            <Text style={styles.actionSubtitle}>Name, rate, timings, address & more</Text>
+            <Text style={styles.actionTitle}>{tr('dash.editPump')}</Text>
+            <Text style={styles.actionSubtitle}>{tr('dash.editPumpSub')}</Text>
           </View>
           <ChevronRightIcon size={20} color={t.colors.textSecondary} />
         </TouchableOpacity>

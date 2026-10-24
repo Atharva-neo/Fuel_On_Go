@@ -19,6 +19,7 @@
     "test:swipe": "node --no-warnings --test scripts/swipeMath.test.mjs",
     "test:expiry": "node --no-warnings --test scripts/approvalExpiry.test.mjs",
     "test:tabbar": "node --no-warnings --test scripts/tabBar.test.mjs",
+    "test:i18n": "node --no-warnings --test scripts/i18n.test.mjs",
     "test:location": "node --no-warnings --test scripts/location.test.mjs"
   },
   "dependencies": {

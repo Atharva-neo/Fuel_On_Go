@@ -3,10 +3,13 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { adminService } from '../../services/admin.service';
 import { ArrowLeftIcon } from '../../components/ui/Icons';
 import { normalizeSchedule } from '../../utils/schedule';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 export default function CNGUpdateScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [pumpId, setPumpId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -52,18 +55,18 @@ export default function CNGUpdateScreen({ navigation }: any) {
 
   const save = async () => {
     if (!pumpId) {
-      Alert.alert('No pump', 'Please register a pump first.');
+      Alert.alert(tr('pumpForm.noPumpTitle'), tr('pumpForm.noPumpBody'));
       return;
     }
     if (!name.trim() || !address.trim() || !city.trim() || !district.trim()) {
-      Alert.alert('Missing fields', 'Name, address, city and district are required.');
+      Alert.alert(tr('pumpForm.missingTitle'), tr('pumpForm.missingEdit'));
       return;
     }
 
     // Instant, specific feedback; the server validates again and stays the authority.
     const schedule = normalizeSchedule(openingTime, closingTime);
     if (!schedule.ok) {
-      Alert.alert('Check operating hours', schedule.message);
+      Alert.alert(tr('schedule.checkHours'), tr(`schedule.${schedule.code}`));
       return;
     }
 
@@ -85,17 +88,17 @@ export default function CNGUpdateScreen({ navigation }: any) {
       });
       const sync = saved?.slot_sync;
       const slotNote = sync?.error
-        ? '\n\nYour hours were saved, but updating slots failed. Open Manage Slots and tap Refresh.'
+        ? `\n\n${tr('pumpForm.slotSyncFailed')}`
         : sync && (sync.created || sync.removed)
-        ? `\n\nSlots for the next 7 days now follow ${schedule.open} - ${schedule.close} (${sync.created} added${sync.removed ? `, ${sync.removed} old removed` : ''}). Existing bookings were kept.`
+        ? `\n\n${tr(sync.removed ? 'pumpForm.slotSyncOkRemoved' : 'pumpForm.slotSyncOk', { open: schedule.open, close: schedule.close, created: sync.created, removed: sync.removed || 0 })}`
         : '';
       setOpeningTime(schedule.open);
       setClosingTime(schedule.close);
-      Alert.alert('Saved', `Pump details updated.${slotNote}`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      Alert.alert(tr('pumpForm.savedTitle'), `${tr('pumpForm.savedBody')}${slotNote}`, [
+        { text: tr('common.ok'), onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      Alert.alert('Failed', error?.response?.data?.error || 'Could not save updates.');
+      Alert.alert(tr('pumpForm.failed'), apiErrorMessage(error, tr, 'pumpForm.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -115,24 +118,24 @@ export default function CNGUpdateScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeftIcon size={22} color={t.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Edit Pump</Text>
+        <Text style={styles.title}>{tr('pumpForm.editTitle')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.label}>Pump Name*</Text>
+          <Text style={styles.label}>{tr('pumpForm.name')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={name} onChangeText={setName} />
 
-          <Text style={styles.label}>Address*</Text>
+          <Text style={styles.label}>{tr('pumpForm.address')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={address} onChangeText={setAddress} />
 
-          <Text style={styles.label}>City*</Text>
+          <Text style={styles.label}>{tr('pumpForm.city')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={city} onChangeText={setCity} />
 
-          <Text style={styles.label}>District*</Text>
+          <Text style={styles.label}>{tr('pumpForm.district')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={district} onChangeText={setDistrict} />
 
-          <Text style={styles.label}>PIN Code</Text>
+          <Text style={styles.label}>{tr('pumpForm.pin')}</Text>
           <TextInput
             style={[styles.input, { marginBottom: 0 }]}
             placeholderTextColor={t.colors.placeholder}
@@ -145,18 +148,18 @@ export default function CNGUpdateScreen({ navigation }: any) {
         <View style={styles.card}>
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Opening Time*</Text>
-              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel="Opening time, 24 hour format" />
+              <Text style={styles.label}>{tr('pumpForm.opening')}</Text>
+              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={openingTime} onChangeText={setOpeningTime} placeholder="06:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel={tr('pumpForm.openingA11y')} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Closing Time*</Text>
-              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={closingTime} onChangeText={setClosingTime} placeholder="22:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel="Closing time, 24 hour format" />
+              <Text style={styles.label}>{tr('pumpForm.closing')}</Text>
+              <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={closingTime} onChangeText={setClosingTime} placeholder="22:00" keyboardType="numbers-and-punctuation" autoCorrect={false} accessibilityLabel={tr('pumpForm.closingA11y')} />
             </View>
           </View>
 
-          <Text style={styles.timeHint}>24-hour times. Use 24:00 for midnight. A closing time earlier than opening means overnight (e.g. 22:00 to 02:00).</Text>
+          <Text style={styles.timeHint}>{tr('pumpForm.timeHint')}</Text>
 
-          <Text style={styles.label}>Vehicles per slot</Text>
+          <Text style={styles.label}>{tr('pumpForm.vehiclesPerSlot')}</Text>
           <View style={styles.stepper}>
             <TouchableOpacity style={styles.stepBtn} onPress={() => setVehiclesPerSlot((v) => Math.max(1, v - 1))}>
               <Text style={styles.stepText}>−</Text>
@@ -169,34 +172,34 @@ export default function CNGUpdateScreen({ navigation }: any) {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>CNG Price (₹/kg)*</Text>
+          <Text style={styles.label}>{tr('pumpForm.price')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
 
-          <Text style={styles.label}>Fuel Density</Text>
+          <Text style={styles.label}>{tr('pumpForm.density')}</Text>
           <TextInput style={styles.input} placeholderTextColor={t.colors.placeholder} value={density} onChangeText={setDensity} keyboardType="decimal-pad" />
 
-          <Text style={styles.label}>Supply Status</Text>
+          <Text style={styles.label}>{tr('pumpForm.supplyStatus')}</Text>
           <View style={styles.chipRow}>
             {(['available', 'low', 'interrupted'] as const).map((s) => (
               <TouchableOpacity key={s} style={[styles.chip, supplyStatus === s && styles.chipActive]} onPress={() => setSupplyStatus(s)}>
-                <Text style={[styles.chipText, supplyStatus === s && styles.chipTextActive]}>{s}</Text>
+                <Text style={[styles.chipText, supplyStatus === s && styles.chipTextActive]}>{tr(`supply.${s}`)}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.label}>Public Message</Text>
+          <Text style={styles.label}>{tr('pumpForm.publicMessage')}</Text>
           <TextInput
             style={[styles.input, styles.multiline, { marginBottom: 0 }]}
             placeholderTextColor={t.colors.placeholder}
             value={message}
             onChangeText={setMessage}
             multiline
-            placeholder="Optional note shown to customers"
+            placeholder={tr('pumpForm.messagePlaceholder')}
           />
         </View>
 
         <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={save} disabled={saving}>
-          <Text style={styles.submitText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+          <Text style={styles.submitText}>{saving ? tr('pumpForm.saving') : tr('common.save')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

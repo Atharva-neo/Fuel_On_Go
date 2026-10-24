@@ -16,6 +16,8 @@ import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon, CheckIcon, AlertIcon, XIcon } from '../../components/ui/Icons';
 import { useTheme, type Theme } from '../../theme';
+import { messageFromData } from '../../i18n/errors';
+import { useT } from '../../i18n';
 
 
 function formatSlotTime(raw: string | undefined) {
@@ -36,6 +38,7 @@ const SCAN_AREA_SIZE = width * 0.7;
 
 export default function QRScannerScreen({ navigation }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [permission, requestPermission] = useCameraPermissions();
   const isFocused = useIsFocused(); // release the camera while another tab is showing
@@ -65,13 +68,13 @@ export default function QRScannerScreen({ navigation }: any) {
   }, []);
 
   if (!permission) return <View />;
-  
+
   if (!permission.granted) {
     return (
       <View style={styles.containerCenter}>
-        <Text style={styles.permissionText}>We need your permission to show the camera.</Text>
+        <Text style={styles.permissionText}>{tr('qr.permission')}</Text>
         <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-          <Text style={styles.permissionBtnText}>Grant Permission</Text>
+          <Text style={styles.permissionBtnText}>{tr('qr.grant')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -124,13 +127,13 @@ export default function QRScannerScreen({ navigation }: any) {
           style={StyleSheet.absoluteFill}
         />
       ) : null}
-      
+
       <View style={styles.overlay}>
         <View style={styles.overlayTop}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <ArrowLeftIcon size={24} color={t.colors.onCamera} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Scan Customer QR</Text>
+          <Text style={styles.headerTitle}>{tr('qr.title')}</Text>
         </View>
 
         <View style={styles.overlayMiddle}>
@@ -140,7 +143,7 @@ export default function QRScannerScreen({ navigation }: any) {
         </View>
 
         <View style={styles.overlayBottom}>
-          <Text style={styles.hintText}>Align QR code within the frame to scan.</Text>
+          <Text style={styles.hintText}>{tr('qr.hint')}</Text>
         </View>
       </View>
 
@@ -150,35 +153,35 @@ export default function QRScannerScreen({ navigation }: any) {
             {loading ? (
               <View style={styles.modalLoader}>
                 <ActivityIndicator size="large" color={t.colors.brandText} />
-                <Text style={styles.modalLoaderText}>Processing...</Text>
+                <Text style={styles.modalLoaderText}>{tr('qr.processing')}</Text>
               </View>
             ) : result?.type === 'success' ? (
               <>
                 <View style={styles.modalHeader}>
                   <CheckIcon size={24} color={t.colors.brandText} />
-                  <Text style={styles.modalTitle}>Check-in Successful!</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.success')}</Text>
                 </View>
 
                 <View style={styles.modalBody}>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Customer</Text>
+                    <Text style={styles.infoLabel}>{tr('qr.customer')}</Text>
                     <Text style={styles.infoValue}>{result.customer_name || '-'}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Vehicle</Text>
+                    <Text style={styles.infoLabel}>{tr('qr.vehicle')}</Text>
                     <Text style={styles.infoValue}>{result.vehicle_number || '-'}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Slot Time</Text>
-                    <Text style={styles.infoValue}>{formatSlotTime(result.slot_time)}</Text>
+                    <Text style={styles.infoLabel}>{tr('qr.slotTime')}</Text>
+                    <Text style={styles.infoValue}>{String(result.slot_time || '').split(' - ').map((part: string) => fmt.clock(part)).join(' - ') || '-'}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Fuel payment</Text>
-                    <Text style={styles.infoValue}>{result.fuel_payment_method === 'upi' ? 'UPI' : 'Cash'} at pump</Text>
+                    <Text style={styles.infoLabel}>{tr('qr.fuelPayment')}</Text>
+                    <Text style={styles.infoValue}>{tr('qr.atPump', { method: result.fuel_payment_method === 'upi' ? tr('payment.upi') : tr('payment.cash') })}</Text>
                   </View>
 
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -186,16 +189,14 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <AlertIcon size={24} color={t.colors.warningText} />
-                  <Text style={styles.modalTitle}>Wrong Pump</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.wrongPumpTitle')}</Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
-                    This customer's booking is for{' '}
-                    {result.data?.pump_name ? <Text style={{ fontWeight: '800' }}>{result.data.pump_name}</Text> : 'another pump'}
-                    , not this one. You can't check them in here.
+                    {tr('qr.wrongPump', { pump: result.data?.pump_name || tr('qr.anotherPump') })}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -203,14 +204,14 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <AlertIcon size={24} color={t.colors.warningText} />
-                  <Text style={styles.modalTitle}>Already Checked In</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.alreadyTitle')}</Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
-                    This booking was already checked in at {formatTimestamp(result.data?.arrived_at)}.
+                    {tr('qr.alreadyBody', { time: result.data?.arrived_at ? fmt.time(result.data.arrived_at) : '-' })}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -218,14 +219,14 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <AlertIcon size={24} color={t.colors.warningText} />
-                  <Text style={styles.modalTitle}>Not Yet Approved</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.notApprovedTitle')}</Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
-                    This booking is still awaiting your approval. Confirm it on the Bookings tab first, then scan again.
+                    {tr('qr.notApprovedBody')}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -233,14 +234,14 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <XIcon size={24} color={t.colors.dangerText} />
-                  <Text style={styles.modalTitle}>Booking Not Active</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.notActiveTitle')}</Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
-                    {result.data?.error || "This booking can't be checked in."}
+                    {messageFromData(result.data, tr, 'qr.notActiveBody')}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -249,17 +250,17 @@ export default function QRScannerScreen({ navigation }: any) {
                 <View style={styles.modalHeader}>
                   <AlertIcon size={24} color={t.colors.warningText} />
                   <Text style={styles.modalTitle}>
-                    {result.data?.code === 'TOO_EARLY' ? 'Too Early' : 'Slot Expired'}
+                    {result.data?.code === 'TOO_EARLY' ? tr('qr.tooEarly') : tr('qr.slotExpired')}
                   </Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
                     {result.data?.code === 'TOO_EARLY'
-                      ? "This customer's slot hasn't started yet. Ask them to come back closer to their slot time."
-                      : 'This slot has already ended, so check-in is no longer available for this booking.'}
+                      ? tr('qr.tooEarlyBody')
+                      : tr('qr.expiredBody')}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -267,14 +268,14 @@ export default function QRScannerScreen({ navigation }: any) {
               <>
                 <View style={styles.modalHeader}>
                   <XIcon size={24} color={t.colors.dangerText} />
-                  <Text style={styles.modalTitle}>Invalid QR Code</Text>
+                  <Text style={styles.modalTitle}>{tr('qr.invalidTitle')}</Text>
                 </View>
                 <View style={styles.modalBody}>
                   <Text style={styles.errorMessage}>
-                    {result.data?.error || "This QR code doesn't match a valid booking."}
+                    {messageFromData(result.data, tr, 'qr.invalidBody')}
                   </Text>
                   <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
-                    <Text style={styles.cancelBtnText}>Scan Next</Text>
+                    <Text style={styles.cancelBtnText}>{tr('qr.scanNext')}</Text>
                   </TouchableOpacity>
                 </View>
               </>

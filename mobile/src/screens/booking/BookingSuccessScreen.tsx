@@ -13,6 +13,7 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { CheckIcon, CalendarIcon, AlertIcon } from '../../components/ui/Icons';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 
 type SuccessNav = NativeStackNavigationProp<AppStackParamList, 'BookingSuccess'>;
@@ -20,6 +21,7 @@ type SuccessRoute = RouteProp<AppStackParamList, 'BookingSuccess'>;
 
 export default function BookingSuccessScreen() {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const navigation = useNavigation<SuccessNav>();
   const route = useRoute<SuccessRoute>();
@@ -56,8 +58,8 @@ export default function BookingSuccessScreen() {
         </Animated.View>
 
         <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
-          <Text style={styles.title}>Booking Request Sent</Text>
-          <Text style={styles.subtitle}>Waiting for the pump owner to confirm your slot</Text>
+          <Text style={styles.title}>{tr('booking.requestSent')}</Text>
+          <Text style={styles.subtitle}>{tr('booking.waitingConfirm')}</Text>
 
           {/* Summary */}
           <Card style={styles.summaryCard}>
@@ -65,12 +67,12 @@ export default function BookingSuccessScreen() {
             <View style={styles.summaryRow}>
               <CalendarIcon size={14} color={t.colors.textSecondary} />
               <Text style={styles.summarySlot}>
-                {booking.slot_date}, {booking.slot_start} – {booking.slot_end}
+                {fmt.date(String(booking.slot_date))}, {fmt.clock(String(booking.slot_start))} – {fmt.clock(String(booking.slot_end))}
               </Text>
             </View>
             <View style={styles.summaryRow}>
               <MaterialCommunityIcons name="credit-card-outline" size={14} color={t.colors.brandText} />
-              <Text style={styles.summaryPaid}>Paid: ₹{booking.amount_paid_now}</Text>
+              <Text style={styles.summaryPaid}>{tr('booking.paidLine', { amount: fmt.rupees(Number(booking.amount_paid_now || 0), 0) })}</Text>
             </View>
           </Card>
 
@@ -84,8 +86,8 @@ export default function BookingSuccessScreen() {
                 backgroundColor={t.colors.qrBackground}
               />
             </View>
-            <Text style={styles.qrLabel}>Show at pump entrance once confirmed</Text>
-            <Text style={styles.qrRef}>Ref: #{booking.id.slice(-8).toUpperCase()}</Text>
+            <Text style={styles.qrLabel}>{tr('booking.showAtEntrance')}</Text>
+            <Text style={styles.qrRef}>{tr('booking.ref', { ref: booking.id.slice(-8).toUpperCase() })}</Text>
           </View>
 
           {/* Buttons */}
@@ -95,7 +97,7 @@ export default function BookingSuccessScreen() {
               size="full"
               onPress={() => navigation.navigate('BookingDetail', { bookingId: booking.id })}
             >
-              View Booking Details
+              {tr('booking.viewBookingDetails')}
             </Button>
             <View style={{ height: 8 }} />
             <Button
@@ -110,7 +112,7 @@ export default function BookingSuccessScreen() {
                 lng: booking.pump_lng,
               } as any })}
             >
-              Navigate to Pump
+              {tr('booking.navigateToPump')}
             </Button>
           </View>
         </Animated.View>

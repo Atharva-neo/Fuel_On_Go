@@ -52,22 +52,25 @@ export function openLocationSettings() {
 }
 
 export function describeLocationProblem(
-  s: Pick<LocationState, 'error' | 'fix' | 'isFresh' | 'lowAccuracy'>
+  s: Pick<LocationState, 'error' | 'fix' | 'isFresh' | 'lowAccuracy'>,
+  tr?: (key: string) => string
 ): string | null {
+  // `tr` localizes the message; without it the English text is returned (tests, non-UI callers).
+  const m = (key: string, english: string) => (tr ? tr(`location.problem.${key}`) : english);
   switch (s.error) {
     case 'permission_denied':
-      return 'Location permission is off. Allow it to see pumps near you.';
+      return m('permission_denied', 'Location permission is off. Allow it to see pumps near you.');
     case 'permission_blocked':
-      return 'Location is blocked for this app. Enable it in system settings.';
+      return m('permission_blocked', 'Location is blocked for this app. Enable it in system settings.');
     case 'services_disabled':
-      return 'Turn on device location (GPS) to see pumps near you.';
+      return m('services_disabled', 'Turn on device location (GPS) to see pumps near you.');
     case 'timeout':
-      return 'Still looking for a GPS signal...';
+      return m('timeout', 'Still looking for a GPS signal...');
     case 'unavailable':
-      return "Couldn't read your location right now.";
+      return m('unavailable', 'Could not read your location right now.');
   }
-  if (s.fix && s.fix.source === 'cached') return 'Showing your last known position while GPS locks on...';
-  if (s.fix && !s.isFresh) return 'Your location may be out of date.';
-  if (s.lowAccuracy) return 'GPS accuracy is low. Move to an open area for a better fix.';
+  if (s.fix && s.fix.source === 'cached') return m('cached', 'Showing your last known position while GPS locks on...');
+  if (s.fix && !s.isFresh) return m('stale', 'Your location may be out of date.');
+  if (s.lowAccuracy) return m('lowAccuracy', 'GPS accuracy is low. Move to an open area for a better fix.');
   return null;
 }

@@ -39,6 +39,7 @@ import {
   type PumpLocationState,
   type SearchHit,
 } from '../location/pumpLocation';
+import { useT } from '../i18n';
 
 export interface ConfirmedPumpLocation {
   state: PumpLocationState;
@@ -55,11 +56,11 @@ interface Props {
   onClose: () => void;
 }
 
-const sourceLabel = { search: 'Address search', gps: 'Current GPS location', manual: 'Placed on map' } as const;
 type Note = { tone: 'info' | 'warning' | 'error'; text: string; blocked?: boolean; retry?: boolean };
 
 export default function PumpLocationPicker({ visible, initial, onConfirm, onClose }: Props) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -188,7 +189,7 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
       const r = await acquireOnce(expoLocationProvider);
       if (!r.ok) {
         // Previous valid selection is left untouched.
-        setNote({ tone: 'error', text: gpsProblemMessage(r.reason), blocked: r.reason === 'permission_blocked', retry: true });
+        setNote({ tone: 'error', text: gpsProblemMessage(r.reason, tr), blocked: r.reason === 'permission_blocked', retry: true });
         return;
       }
       setSel((s) => applyGpsFix(s, r.fix));
@@ -196,16 +197,16 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
       setHits([]);
       setQuery('');
       fly(r.fix.lat, r.fix.lng, { zoom: 18 });
-      const acc = r.fix.accuracy != null ? `GPS accuracy about ${Math.round(r.fix.accuracy)} m.` : 'GPS accuracy unknown.';
+      const acc = r.fix.accuracy != null ? tr('picker.gpsAcc', { m: Math.round(r.fix.accuracy) }) : tr('picker.gpsAccUnknown');
       // Only speak up when it matters; a good fix needs no extra panel.
       setNote(
         r.approximate
           ? {
               tone: 'warning',
-              text: `${acc} ${r.reason === 'stale' ? 'This reading is old.' : 'Weak signal.'} Move the map to place the pin exactly.`,
+              text: `${acc} ${r.reason === 'stale' ? tr('picker.oldReading') : tr('picker.weakSignal')} ${tr('picker.moveMapExact')}`,
               retry: true,
             }
-          : { tone: 'info', text: `${acc} Move the map to fine-tune the pin.` }
+          : { tone: 'info', text: `${acc} ${tr('picker.moveMapFine')}` }
       );
     } finally {
       gpsLock.current = false;
@@ -267,14 +268,14 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeBtn}
-            accessibilityLabel="Close"
+            accessibilityLabel={tr('picker.close')}
             onPress={onClose}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <MaterialCommunityIcons name="close" size={24} color={t.colors.text} />
           </TouchableOpacity>
           <Text style={styles.title} accessibilityRole="header">
-            Pump Location
+            {tr('picker.title')}
           </Text>
           <View style={styles.closeBtn} />
         </View>
@@ -286,19 +287,19 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
-              placeholder="Search address, landmark or area"
+              placeholder={tr('picker.searchPlaceholder')}
               placeholderTextColor={t.colors.placeholder}
               value={query}
               onChangeText={setQuery}
               onFocus={() => setFocused(true)}
               returnKeyType="search"
               autoCorrect={false}
-              accessibilityLabel="Search address"
+              accessibilityLabel={tr('picker.searchLabel')}
             />
             {searching ? (
               <ActivityIndicator size="small" color={t.colors.brandText} />
             ) : query.length > 0 ? (
-              <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity accessibilityLabel={tr('picker.clearSearch')} onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <MaterialCommunityIcons name="close-circle" size={18} color={t.colors.textMuted} />
               </TouchableOpacity>
             ) : null}
@@ -315,7 +316,7 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
             >
               <MaterialCommunityIcons name="map-search-outline" size={20} color={t.colors.brandText} />
               <Text style={styles.actionSecondaryText} numberOfLines={1}>
-                Search Address
+                {tr('picker.searchAddress')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -330,7 +331,7 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
                 <MaterialCommunityIcons name="crosshairs-gps" size={20} color={t.colors.onBrand} />
               )}
               <Text style={styles.actionPrimaryText} numberOfLines={1}>
-                {gpsBusy ? 'Locating...' : 'Set My Current Location'}
+                {gpsBusy ? tr('picker.locating') : tr('picker.useMyLocation')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -345,12 +346,12 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
               <Text style={styles.noteText}>{note.text}</Text>
               {note.blocked ? (
                 <TouchableOpacity onPress={openLocationSettings} accessibilityRole="button">
-                  <Text style={styles.noteLink}>Settings</Text>
+                  <Text style={styles.noteLink}>{tr('picker.settings')}</Text>
                 </TouchableOpacity>
               ) : null}
               {note.retry ? (
                 <TouchableOpacity onPress={useMyLocation} disabled={gpsBusy} accessibilityRole="button">
-                  <Text style={styles.noteLink}>Retry</Text>
+                  <Text style={styles.noteLink}>{tr('common.retry')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -372,13 +373,13 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
           {tiles === 'loading' ? (
             <View style={styles.mapOverlay} pointerEvents="none">
               <ActivityIndicator size="small" color={t.colors.brandText} />
-              <Text style={styles.mapOverlayText}>Loading map...</Text>
+              <Text style={styles.mapOverlayText}>{tr('map.loading')}</Text>
             </View>
           ) : null}
           {tiles === 'failed' ? (
             <View style={styles.mapOverlay}>
               <MaterialCommunityIcons name="map-marker-off-outline" size={18} color={t.colors.dangerText} />
-              <Text style={styles.mapOverlayText}>Map tiles could not be loaded. Your selection is kept.</Text>
+              <Text style={styles.mapOverlayText}>{tr('picker.tilesFailed')}</Text>
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={() => {
@@ -386,7 +387,7 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
                   post({ type: 'RETRY_TILES' });
                 }}
               >
-                <Text style={styles.noteLink}>Retry</Text>
+                <Text style={styles.noteLink}>{tr('common.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -394,14 +395,14 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
           {sel.point ? (
             <TouchableOpacity
               style={styles.recenter}
-              accessibilityLabel="Return to selected point"
+              accessibilityLabel={tr('picker.returnToPoint')}
               onPress={() => fly(sel.point!.lat, sel.point!.lng, { zoom: Math.max(zoom, 17) })}
             >
               <MaterialCommunityIcons name="target" size={22} color={t.colors.mapControlIcon} />
             </TouchableOpacity>
           ) : (
             <View style={styles.mapHint} pointerEvents="none">
-              <Text style={styles.mapHintText}>Search an address or use your location, then zoom in and move the map to place the pin.</Text>
+              <Text style={styles.mapHintText}>{tr('picker.mapHint')}</Text>
             </View>
           )}
         </View>
@@ -412,23 +413,23 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
             <>
               <Text style={styles.addr} numberOfLines={2}>
                 {sel.addressStatus === 'loading'
-                  ? 'Finding address...'
+                  ? tr('picker.findingAddress')
                   : sel.addressStatus === 'failed' || !sel.address
-                  ? 'Address unavailable here (coordinates are still saved)'
+                  ? tr('picker.addressUnavailable')
                   : sel.address}
               </Text>
               <Text style={styles.coords}>
                 {formatCoord(sel.point.lat)}, {formatCoord(sel.point.lng)}
               </Text>
               <Text style={styles.meta} numberOfLines={2}>
-                {sel.source ? sourceLabel[sel.source] : ''}
-                {sel.source === 'gps' && sel.accuracyM != null ? ` - GPS accuracy ~${Math.round(sel.accuracyM)} m` : ''}
-                {zoom < 15 ? ' - zoom in for an exact spot' : ''}
-                {' - Owner-selected, not independently verified'}
+                {sel.source ? tr(`picker.source.${sel.source}`) : ''}
+                {sel.source === 'gps' && sel.accuracyM != null ? tr('picker.gpsAccuracyMeta', { m: Math.round(sel.accuracyM) }) : ''}
+                {zoom < 15 ? tr('picker.zoomIn') : ''}
+                {tr('picker.ownerSelected')}
               </Text>
             </>
           ) : (
-            <Text style={styles.addr}>No location selected yet.</Text>
+            <Text style={styles.addr}>{tr('picker.none')}</Text>
           )}
           <TouchableOpacity
             style={[styles.confirm, !canConfirm(sel) && styles.confirmDisabled]}
@@ -436,36 +437,36 @@ export default function PumpLocationPicker({ visible, initial, onConfirm, onClos
             accessibilityRole="button"
             onPress={confirm}
           >
-            <Text style={styles.confirmText}>Confirm Pump Location</Text>
+            <Text style={styles.confirmText}>{tr('picker.confirm')}</Text>
           </TouchableOpacity>
-          <Text style={styles.attribution}>Address data (c) OpenStreetMap contributors</Text>
+          <Text style={styles.attribution}>{tr('picker.attribution')}</Text>
         </View>
 
         {/* Suggestions: a top-level layer so the map can never clip or cover it. */}
         {showSuggestions ? (
           <>
-            <Pressable style={[styles.backdrop, { top: insets.top + 52 + 56 }]} onPress={() => { setFocused(false); Keyboard.dismiss(); }} accessibilityLabel="Dismiss suggestions" />
+            <Pressable style={[styles.backdrop, { top: insets.top + 52 + 56 }]} onPress={() => { setFocused(false); Keyboard.dismiss(); }} accessibilityLabel={tr('picker.dismissSuggestions')} />
             <View style={[styles.suggestions, { top: insets.top + 52 + 56 }]}>
               <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={{ maxHeight: 260 }}>
                 {searching && hits.length === 0 ? (
                   <View style={styles.suggestionRow}>
                     <ActivityIndicator size="small" color={t.colors.brandText} />
-                    <Text style={styles.suggestionMuted}>Searching...</Text>
+                    <Text style={styles.suggestionMuted}>{tr('picker.searching')}</Text>
                   </View>
                 ) : null}
                 {searchError ? (
                   <View style={styles.suggestionRow}>
                     <MaterialCommunityIcons name="wifi-off" size={18} color={t.colors.dangerText} />
-                    <Text style={[styles.suggestionMuted, { flex: 1 }]}>Couldn't search. Check your connection.</Text>
+                    <Text style={[styles.suggestionMuted, { flex: 1 }]}>{tr('picker.searchFailed')}</Text>
                     <TouchableOpacity onPress={() => setSearchNonce((n) => n + 1)} accessibilityRole="button">
-                      <Text style={styles.noteLink}>Retry</Text>
+                      <Text style={styles.noteLink}>{tr('common.retry')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : null}
                 {!searching && !searchError && hits.length === 0 ? (
                   <View style={styles.suggestionRow}>
                     <MaterialCommunityIcons name="magnify-close" size={18} color={t.colors.textMuted} />
-                    <Text style={styles.suggestionMuted}>No matching address. Try a nearby landmark or area.</Text>
+                    <Text style={styles.suggestionMuted}>{tr('picker.noMatch')}</Text>
                   </View>
                 ) : null}
                 {hits.map((h, i) => (

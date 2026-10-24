@@ -28,6 +28,8 @@ export interface BookingLike {
 export interface Classified {
   tab: BookingTab;
   label: string;
+  /** Stable id for translation: status.<key> */
+  key: string;
   tone: BookingTone;
   expired: boolean;
 }
@@ -52,25 +54,25 @@ export function classifyBooking(b: BookingLike, now: Date = new Date()): Classif
   switch (status) {
     case 'pending':
       return ended
-        ? { tab: 'cancelled', label: 'Expired', tone: 'neutral', expired: true }
-        : { tab: 'upcoming', label: 'Pending Approval', tone: 'amber', expired: false };
+        ? { tab: 'cancelled', label: 'Expired', key: 'expired', tone: 'neutral', expired: true }
+        : { tab: 'upcoming', label: 'Pending Approval', key: 'pending_approval', tone: 'amber', expired: false };
     case 'confirmed':
     case 'approved':
       return ended
-        ? { tab: 'completed', label: 'Expired', tone: 'neutral', expired: true }
-        : { tab: 'upcoming', label: 'Confirmed', tone: 'green', expired: false };
+        ? { tab: 'completed', label: 'Expired', key: 'expired', tone: 'neutral', expired: true }
+        : { tab: 'upcoming', label: 'Confirmed', key: 'confirmed', tone: 'green', expired: false };
     case 'arrived':
     case 'completed':
-      return { tab: 'completed', label: 'Completed', tone: 'green', expired: false };
+      return { tab: 'completed', label: 'Completed', key: 'completed', tone: 'green', expired: false };
     case 'no_show':
-      return { tab: 'completed', label: 'No Show', tone: 'red', expired: false };
+      return { tab: 'completed', label: 'No Show', key: 'no_show', tone: 'red', expired: false };
     case 'cancelled':
-      return { tab: 'cancelled', label: 'Cancelled', tone: 'red', expired: false };
+      return { tab: 'cancelled', label: 'Cancelled', key: 'cancelled', tone: 'red', expired: false };
     case 'rejected':
-      return { tab: 'cancelled', label: 'Rejected', tone: 'red', expired: false };
+      return { tab: 'cancelled', label: 'Rejected', key: 'rejected', tone: 'red', expired: false };
     default:
       // Unknown status: never guess "upcoming".
-      return { tab: 'completed', label: status ? status.replace(/_/g, ' ') : 'Unknown', tone: 'neutral', expired: false };
+      return { tab: 'completed', label: status ? status.replace(/_/g, ' ') : 'Unknown', key: 'unknown', tone: 'neutral', expired: false };
   }
 }
 

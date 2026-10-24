@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme, type Theme } from '../theme';
+import { useT } from '../i18n';
 
 interface Slot {
   id: string | number;
@@ -26,6 +27,7 @@ interface SlotCarouselProps {
 
 export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPress }: SlotCarouselProps) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const now = new Date();
 
@@ -45,12 +47,12 @@ export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPr
         const cap = Number(slot.capacity ?? slot.max_capacity ?? 0);
         const booked = Number(slot.booked_count ?? cap - Number(slot.available_capacity ?? cap));
         const left = Math.max(0, cap - booked);
-        
+
         const slotStart = new Date(`${slot.slot_date || slot.date}T${slot.start_time}`);
         const isPast = Number.isFinite(slotStart.getTime()) && slotStart.getTime() < now.getTime();
         const isDeactivated = slot.status === 'deactivated' || slot.is_deactivated;
         const isFull = left <= 0;
-        
+
         const available = !isPast && !isDeactivated && !isFull;
         const isSelected = selectedSlotId === slot.id;
 
@@ -75,14 +77,14 @@ export default function SlotCarousel({ slots, selectedSlotId, onSelect, onLongPr
               isSelected && styles.timeTextSelected,
               (!available && !isSelected) && styles.timeTextDisabled
             ]}>
-              {String(slot.start_time).slice(0, 5)}
+              {fmt.clock(String(slot.start_time))}
             </Text>
             <Text style={[
               styles.metaText,
               isSelected && styles.metaTextSelected,
               (!available && !isSelected) && styles.metaTextDisabled
             ]}>
-              {isDeactivated ? 'Unavailable' : isFull ? 'Full' : `${left} left`}
+              {isDeactivated ? tr('slot.unavailable') : isFull ? tr('slot.full') : tr('slot.left', { count: left })}
             </Text>
           </TouchableOpacity>
         );

@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { bookingService } from '../../services/booking.service';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
+import { useT } from '../../i18n';
 
 export default function AdminBookingDetailScreen({ route }: any) {
   const t = useTheme();
+  const { tr, fmt } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const [booking, setBooking] = useState(route.params?.booking || null);
   const [loading, setLoading] = useState(false);
@@ -12,24 +15,24 @@ export default function AdminBookingDetailScreen({ route }: any) {
   if (!booking) {
     return (
       <View style={styles.center}>
-        <Text style={styles.missing}>Booking details unavailable.</Text>
+        <Text style={styles.missing}>{tr('ownerDetail.unavailable')}</Text>
       </View>
     );
   }
 
   const manualCheckin = () => {
-    Alert.alert('Manual check-in', 'Mark this booking as arrived?', [
-      { text: 'Cancel' },
+    Alert.alert(tr('ownerDetail.manualTitle'), tr('ownerDetail.manualBody'), [
+      { text: tr('common.cancel') },
       {
-        text: 'Confirm',
+        text: tr('common.confirm'),
         onPress: async () => {
           setLoading(true);
           try {
             const res = await bookingService.checkinByAdmin(booking.qr_token || booking.id);
             setBooking({ ...booking, ...res, status: 'arrived' });
-            Alert.alert('Success', 'Customer checked in.');
+            Alert.alert(tr('common.success'), tr('ownerDetail.checkedIn'));
           } catch (error: any) {
-            Alert.alert('Failed', error?.response?.data?.error || 'Unable to check in.');
+            Alert.alert(tr('ownerDetail.failed'), apiErrorMessage(error, tr, 'ownerDetail.checkinFailed'));
           } finally {
             setLoading(false);
           }
@@ -40,24 +43,24 @@ export default function AdminBookingDetailScreen({ route }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Admin Booking Detail</Text>
+      <Text style={styles.title}>{tr('ownerDetail.title')}</Text>
 
       <View style={styles.card}>
-        <Text style={styles.row}>Customer: {booking.user?.name || booking.customer_name || '-'}</Text>
-        <Text style={styles.row}>Phone: {booking.user?.phone || '-'}</Text>
-        <Text style={styles.row}>Vehicle: {booking.user?.vehicle_number || booking.vehicle_number || '-'}</Text>
-        <Text style={styles.row}>Slot: {booking.slot_start?.slice(0, 5)} - {booking.slot_end?.slice(0, 5)}</Text>
-        <Text style={styles.row}>Status: {booking.status}</Text>
-        <Text style={styles.row}>Pending Collection: ?{booking.pending_amount || 0}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.customer', { value: booking.user?.name || booking.customer_name || '-' })}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.phone', { value: booking.user?.phone || '-' })}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.vehicle', { value: booking.user?.vehicle_number || booking.vehicle_number || '-' })}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.slot', { start: fmt.clock(String(booking.slot_start)), end: fmt.clock(String(booking.slot_end)) })}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.status', { value: ['pending', 'confirmed', 'arrived', 'no_show', 'cancelled', 'rejected'].includes(booking.status) ? tr(`status.${booking.status}`) : booking.status })}</Text>
+        <Text style={styles.row}>{tr('ownerDetail.pendingCollection', { amount: fmt.rupees(Number(booking.pending_amount || 0), 0) })}</Text>
       </View>
 
       {booking.status !== 'arrived' ? (
         <TouchableOpacity style={[styles.checkinBtn, loading && styles.checkinBtnDisabled]} onPress={manualCheckin} disabled={loading}>
-          <Text style={styles.checkinText}>{loading ? 'Processing...' : 'Manual Check-in'}</Text>
+          <Text style={styles.checkinText}>{loading ? tr('payment.processing') : tr('ownerDetail.manualCheckin')}</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.doneBadge}>
-          <Text style={styles.doneText}>Already checked in</Text>
+          <Text style={styles.doneText}>{tr('ownerDetail.alreadyCheckedIn')}</Text>
         </View>
       )}
     </View>

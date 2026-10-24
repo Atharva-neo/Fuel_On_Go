@@ -1,17 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { apiErrorMessage } from '../../i18n/errors';
 import { useTheme, type Theme } from '../../theme';
 import { ratingService, type PumpReviews } from '../../services/rating.service';
 import { RatingSummaryCard, ReviewRow } from '../../components/ReviewParts';
 import { useRatingEvents } from '../../ratings/ratingEvents';
+import { useT } from '../../i18n';
 
 // Customer-facing reviews of one pump: summary, distribution, verified reviews.
 export default function PumpReviewsScreen({ route, navigation }: any) {
   const t = useTheme();
+  const { tr } = useT();
   const styles = useMemo(() => createStyles(t), [t]);
   const pumpId: string = route.params?.pumpId;
-  const pumpName: string = route.params?.pumpName || 'Pump reviews';
+  const pumpName: string = route.params?.pumpName || tr('pump.reviewsTitle');
   const version = useRatingEvents((s) => s.version);
 
   const [data, setData] = useState<PumpReviews | null>(null);
@@ -30,7 +33,7 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
       setData(await ratingService.pumpReviews(pumpId, 0));
     } catch (e: any) {
       setError(true);
-      setErrorMsg(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
+      setErrorMsg(apiErrorMessage(e, tr));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -58,7 +61,7 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityLabel={tr('common.back')}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={t.colors.text} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
@@ -71,10 +74,10 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
       ) : error && !data ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="wifi-off" size={28} color={t.colors.textMuted} />
-          <Text style={styles.muted}>Couldn't load reviews.</Text>
+          <Text style={styles.muted}>{tr('pump.reviewsLoadFailed')}</Text>
           {errorMsg ? <Text style={styles.muted}>{errorMsg}</Text> : null}
           <TouchableOpacity style={styles.retry} onPress={() => load()} accessibilityRole="button">
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{tr('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : data ? (
@@ -90,7 +93,7 @@ export default function PumpReviewsScreen({ route, navigation }: any) {
           ListEmptyComponent={
             <View style={styles.center}>
               <MaterialCommunityIcons name="star-outline" size={28} color={t.colors.textMuted} />
-              <Text style={styles.muted}>No reviews yet. Reviews come from customers who completed a visit.</Text>
+              <Text style={styles.muted}>{tr('pump.reviewsEmpty')}</Text>
             </View>
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator color={t.colors.brandText} /> : null}
