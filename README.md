@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="logo.jpeg" alt="fuel on go logo" width="200"/>
+  <img src="logo.jpeg" alt="fuel on go logo" width="300" style="border-radius: 16px;"/>
   <br>
-  <em>Fuel On Go</em>
+  
 </p>
 
 
