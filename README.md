@@ -109,7 +109,61 @@ See [`mobile/ANDROID_BUILD.md`](mobile/ANDROID_BUILD.md) for details.
 - **Auth:** phone number plus OTP, then a JWT. Roles are `user`, `pump_owner` and `admin`; owner endpoints check the role and that the pump belongs to the caller.
 - **Booking lifecycle:** `pending` → `confirmed` → `arrived` (QR check-in). Other outcomes are `rejected`, `cancelled` and `no_show`. Dates and times are IST wall-clock values.
 - **Slots:** generated per pump from its working hours; an owner changing the hours re-syncs future slots.
-- **Trust score and ratings:** event ledgers in Postgres (migrations `007` and `008`); ratings are accepted only for the caller's own completed visit.
+- **Ratings:** stored in `pump_ratings` (migration `008`); accepted only for the caller's own completed visit.
+
+## Authentication (JWT)
+
+1. `POST /api/auth/check-phone` tells the app whether the number is already registered.
+2. `POST /api/auth/send-otp` stores an OTP for the normalised number (`+91` plus the last ten digits) in memory with a 5-minute expiry. The OTP is currently the fixed value `123456` and is also returned as `dev_otp`; replace this with a real SMS provider before going live.
+3. `POST /api/auth/verify-otp` checks the OTP (single use) and returns `{ token, user }`.
+4. The token is an HS256 JWT signed with `JWT_SECRET`, valid for 30 days, with this payload:
+
+   ```json
+   { "sub": "<user id>", "phone": "+91XXXXXXXXXX", "role": "user | pump_owner | admin", "exp": 0 }
+   ```
+
+5. The app keeps the token in `expo-secure-store` and an axios interceptor adds `Authorization: Bearer <token>` to every request.
+6. The `authenticate` middleware verifies the signature and expiry and puts the payload on `req.user`; anything else is a `401`.
+7. Owner and admin routes then re-check the role against the database (not just the token) and that the pump belongs to the caller, so a stale or tampered claim can't grant access.
+
+In production the server refuses to start unless `JWT_SECRET` is at least 32 characters. Tokens are not revocable before they expire; logging out only clears them on the device.
+
+## Trust score
+
+Every user has a score from 0 to 100, starting at 80. It is a ledger: each change is a row in `trust_score_events` (migration `007`, append-only) with the change applied, the resulting score, a reason and who caused it, so the number can always be explained.
+
+**What changes it**
+
+| Event | Change |
+|---|---|
+| No-show confirmed by the pump owner | -15 |
+| Cancelling more than 24 hours before the slot | 0 |
+| Cancelling 6 to 24 hours before | -2 |
+| Cancelling 1 to 6 hours before | -5 |
+| Cancelling less than 1 hour before | -8 |
+| Admin reversal of an earlier event | undoes that event |
+
+The score only goes down on its own. There is no automatic recovery; the only way back up is an admin reversing a mistaken penalty.
+
+**Rules**
+- A no-show can only be recorded by the pump owner for a `confirmed` booking, and only after a 15-minute grace period from the slot start.
+- Each penalty is keyed to its booking (`no_show:<id>`, `cancel:<id>`), so retries or double taps can't apply it twice. Competing requests resolve through a conditional status update, so only one wins.
+- The score is clamped to 0-100, and the ledger records the change actually applied after clamping.
+- A reversal needs a written reason, can't be applied twice, and a reversal can't itself be reversed.
+- Scores are shown as bands: Excellent (90+), Good (75+), Fair (50+), Low (25+), Very Low.
+- Users flagged `is_blocked` can't create bookings (`403`). The flag is separate from the score; the score does not block anyone automatically.
+- If the ledger table hasn't been migrated, the profile still shows the score and just hides the history.
+
+**Configuration** (all optional environment variables on the backend)
+
+| Variable | Default |
+|---|---|
+| `TRUST_DEFAULT_SCORE` | `80` |
+| `TRUST_NO_SHOW_PENALTY` | `15` |
+| `TRUST_NO_SHOW_GRACE_MINUTES` | `15` |
+| `TRUST_CANCELLATION_TIERS` | JSON array of `{minHours, exclusive, penalty}`, first match wins |
+
+The policy lives in [`backend/src/config/trustPolicy.js`](backend/src/config/trustPolicy.js) and the scoring in [`backend/src/services/trustScoreService.js`](backend/src/services/trustScoreService.js). Users see their score and recent events under `GET /api/trust/me`.
 
 ## Deployment
 
