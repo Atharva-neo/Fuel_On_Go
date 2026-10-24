@@ -15,6 +15,10 @@
     "test:ratings": "node --no-warnings --test scripts/ratings.test.mjs",
     "test:schedule": "node --no-warnings --test scripts/schedule.test.mjs",
     "test:bookings": "node --no-warnings --test scripts/bookingStatus.test.mjs",
+    "test:history": "node --no-warnings --test scripts/historyFilter.test.mjs",
+    "test:swipe": "node --no-warnings --test scripts/swipeMath.test.mjs",
+    "test:expiry": "node --no-warnings --test scripts/approvalExpiry.test.mjs",
+    "test:tabbar": "node --no-warnings --test scripts/tabBar.test.mjs",
     "test:location": "node --no-warnings --test scripts/location.test.mjs"
   },
   "dependencies": {

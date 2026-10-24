@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useIsFocused } from '@react-navigation/native';
 import api from '../../config/api';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowLeftIcon, CheckIcon, AlertIcon, XIcon } from '../../components/ui/Icons';
@@ -37,6 +38,7 @@ export default function QRScannerScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => createStyles(t), [t]);
   const [permission, requestPermission] = useCameraPermissions();
+  const isFocused = useIsFocused(); // release the camera while another tab is showing
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -115,11 +117,13 @@ export default function QRScannerScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        style={StyleSheet.absoluteFill}
-      />
+      {isFocused ? (
+        <CameraView
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       
       <View style={styles.overlay}>
         <View style={styles.overlayTop}>

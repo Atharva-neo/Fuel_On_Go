@@ -136,11 +136,11 @@ export default function AdminDashboardScreen({ navigation }: any) {
       </View>
       <View style={[styles.statsGrid, { paddingTop: 0 }]}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Bookings</Text>
+          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>Total Bookings</Text>
           <Text style={styles.statValueHighlight}>{Number(stats?.booked || 0)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>No Shows</Text>
+          <Text style={[styles.statLabel, styles.statLabelTwoLine]} numberOfLines={2}>No Shows</Text>
           <Text style={[styles.statValueHighlight, { color: t.colors.dangerText }]}>{Number(stats?.no_shows || 0)}</Text>
         </View>
       </View>
@@ -320,6 +320,9 @@ const createStyles = (t: Theme) => StyleSheet.create({
   },
   statCard: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    justifyContent: 'flex-start',
     backgroundColor: t.colors.surface,
     borderRadius: 16,
     padding: 20,
@@ -338,9 +341,13 @@ const createStyles = (t: Theme) => StyleSheet.create({
   statLabel: {
     color: t.colors.textSecondary,
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
     marginBottom: 8,
   },
+  // Reserve two lines so a label that wraps ("Total Bookings" on narrow phones) never pushes the
+  // number lower than its neighbour: both numbers always start at the same offset.
+  statLabelTwoLine: { minHeight: 40 },
   statValue: {
     color: t.colors.text,
     fontSize: 28,

@@ -5,6 +5,7 @@ const { authenticate } = require('./authRoutes');
 const { trust } = require('../services/trustInstance');
 const { slotAllowedByHours } = require('../services/slotGenerator');
 const { slotEndInstant } = require('../services/trustScoreService');
+const { approvePending } = require('../services/bookingApproval');
 
 const router = express.Router();
 
@@ -354,7 +355,7 @@ router.delete('/:id', authenticate, async (req, res) => {
 async function ensureOwnerCanManageBooking(userId, bookingId) {
   const { data: booking, error: bookingErr } = await supabase
     .from('bookings')
-    .select('id, pump_id, slot_id, status')
+    .select('id, pump_id, slot_id, status, slot_date, slot_start')
     .eq('id', bookingId)
     .single();
   if (bookingErr) throw bookingErr;
@@ -385,22 +386,12 @@ router.patch('/:id/approve', authenticate, async (req, res) => {
     }
 
     const booking = await ensureOwnerCanManageBooking(req.user.sub, req.params.id);
-    if (booking.status !== 'pending') {
-      return res.status(400).json({ error: `Booking is already ${booking.status}, not pending` });
-    }
-
-    const { data, error } = await supabase
-      .from('bookings')
-      .update({ status: 'confirmed' })
-      .eq('id', booking.id)
-      .select('*')
-      .single();
-    if (error) throw error;
+    const data = await approvePending({ supabase, booking });
 
     return res.json(data);
   } catch (err) {
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message });
+    return res.status(status).json(err.code && typeof err.code === 'string' ? { error: err.message, code: err.code } : { error: err.message });
   }
 });
 

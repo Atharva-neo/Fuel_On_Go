@@ -59,7 +59,13 @@ export const adminService = {
     return data;
   },
 
-  async exportBookingsCsv(params?: { date?: string; status?: string }): Promise<string> {
+  /** One page of the owner's booking history (same filter code as the CSV export on the server). */
+  async getBookingHistory(params: { date?: string; from?: string; to?: string; status?: string; limit?: number; offset?: number }) {
+    const { data } = await api.get('/admin/bookings/history', { params });
+    return data as { items: any[]; total: number; has_more: boolean; limit: number; offset: number };
+  },
+
+  async exportBookingsCsv(params?: { date?: string; from?: string; to?: string; status?: string }): Promise<string> {
     const { data } = await api.get('/admin/bookings/export', {
       params,
       responseType: 'text',

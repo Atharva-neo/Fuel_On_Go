@@ -1,51 +1,83 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { pumpService } from '../../services/pump.service';
 import { adminService } from '../../services/admin.service';
 import { useTheme, type Theme } from '../../theme';
+import { useFocusEffect } from '@react-navigation/native';
+import { istDate } from '../../utils/schedule';
+import { approvalExpired } from '../../utils/approvalExpiry';
+import { STATUS_GROUPS, describeRange, historyParams, mergePage, shiftDay, type RangeMode, type StatusGroup } from '../../utils/historyFilter';
 
-
-function isoDate(offset = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toISOString().slice(0, 10);
-}
-
-function shiftDate(isoStr: string, deltaDays: number) {
-  const d = new Date(`${isoStr}T00:00:00`);
-  d.setDate(d.getDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
-}
 
 export default function AdminBookingsScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => createStyles(t), [t]);
-  const [date, setDate] = useState(isoDate(0));
+  const PAGE = 25;
+  // Default: the COMPLETE history, newest visit first. (It used to open on a single day.)
+  const [mode, setMode] = useState<RangeMode>('all');
+  const [date, setDate] = useState(istDate(0));
+  const [group, setGroup] = useState<StatusGroup>('all');
   const [bookings, setBookings] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [actingOn, setActingOn] = useState<string | null>(null);
 
-  const load = async () => {
+  // The very same params feed the list and the CSV export.
+  const params = useMemo(() => historyParams(mode, date, group), [mode, date, group]);
+
+  const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const data = await pumpService.getMyBookings(date);
-      setBookings(Array.isArray(data) ? data : []);
-    } catch {
-      setBookings([]);
+      const page = await adminService.getBookingHistory({ ...params, limit: PAGE, offset: 0 });
+      setBookings(page.items);
+      setTotal(page.total);
+      setHasMore(page.has_more);
+    } catch (e: any) {
+      // A failed request is an error with a retry, never "no bookings".
+      setError(e?.response?.data?.error || (e?.response ? `Server error (${e.response.status})` : 'No connection to the server'));
     } finally {
       setLoading(false);
     }
+  }, [params]);
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await adminService.getBookingHistory({ ...params, limit: PAGE, offset: bookings.length });
+      setBookings((cur) => mergePage(cur, page.items));
+      setTotal(page.total);
+      setHasMore(page.has_more);
+    } catch {
+      // keep what is shown; the button stays so the owner can retry
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
-  useEffect(() => {
-    load();
-  }, [date]);
+  // Reload when the filter changes AND whenever the screen regains focus (e.g. back from a
+  // booking detail where the status changed), so rows are never stale.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
-  const isToday = date === isoDate(0);
+  const isToday = date === istDate(0);
+
+  // Clock tick so a pending request flips to Expired while the screen stays open.
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
   const pendingCount = bookings.filter((b) => b.status === 'pending').length;
 
   const handleApprove = async (bookingId: string) => {
@@ -54,7 +86,11 @@ export default function AdminBookingsScreen({ navigation }: any) {
       await adminService.approveBooking(bookingId);
       load();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not approve booking.');
+      Alert.alert(
+        err?.response?.data?.code === 'BOOKING_EXPIRED' ? 'Request expired' : 'Error',
+        err?.response?.data?.error || 'Could not approve booking.'
+      );
+      load(); // the server is the authority: show the booking as it now stands
     } finally {
       setActingOn(null);
     }
@@ -117,7 +153,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const csv = await adminService.exportBookingsCsv();
+      const csv = await adminService.exportBookingsCsv(params); // same filter as the list
       const file = new File(Paths.cache, `fuel-on-go-bookings-${Date.now()}.csv`);
       file.create();
       file.write(csv);
@@ -161,38 +197,71 @@ export default function AdminBookingsScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
         </View>
-        <View style={styles.dateRow}>
-          <TouchableOpacity
-            style={styles.dateBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            onPress={() => setDate(shiftDate(date, -1))}
-          >
-            <Text style={styles.dateAction}>Yesterday</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.dateBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            onPress={() => setDate(isoDate(0))}
-            disabled={isToday}
-          >
-            <Text style={[styles.date, isToday && styles.dateToday]}>{date}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.dateBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            onPress={() => setDate(shiftDate(date, 1))}
-          >
-            <Text style={styles.dateAction}>Tomorrow</Text>
-          </TouchableOpacity>
+        <View style={styles.chipRow}>
+          {([['all', 'All'], ['week', 'Last 7 days'], ['day', 'Single day']] as Array<[RangeMode, string]>).map(([m, label]) => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.chip, mode === m && styles.chipActive]}
+              onPress={() => {
+                setMode(m);
+                if (m === 'day') setDate(istDate(0));
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === m }}
+            >
+              <Text style={[styles.chipText, mode === m && styles.chipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+
+        {mode === 'day' ? (
+          <View style={styles.dateRow}>
+            <TouchableOpacity style={styles.dateBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} onPress={() => setDate(shiftDay(date, -1))}>
+              <Text style={styles.dateAction}>Previous day</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dateBtn} onPress={() => setDate(istDate(0))} disabled={isToday}>
+              <Text style={[styles.date, isToday && styles.dateToday]}>{date}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dateBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} onPress={() => setDate(shiftDay(date, 1))}>
+              <Text style={styles.dateAction}>Next day</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {STATUS_GROUPS.map((g) => (
+            <TouchableOpacity
+              key={g.key}
+              style={[styles.chip, group === g.key && styles.chipActive]}
+              onPress={() => setGroup(g.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: group === g.key }}
+            >
+              <Text style={[styles.chipText, group === g.key && styles.chipTextActive]}>{g.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.summary}>
+          {describeRange(mode, date)} - {loading ? '...' : `${total} booking${total === 1 ? '' : 's'}`}
+        </Text>
       </View>
 
       {loading ? (
         <ActivityIndicator color={t.colors.brandText} style={{ marginTop: 24 }} />
+      ) : error ? (
+        <View style={{ alignItems: 'center', padding: 24, gap: 10 }}>
+          <Text style={styles.empty}>{"Couldn't load bookings."}</Text>
+          <Text style={styles.meta}>{error}</Text>
+          <TouchableOpacity style={styles.chip} onPress={load} accessibilityRole="button">
+            <Text style={styles.chipTextActive}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
           {bookings.map((booking) => {
             const isPending = booking.status === 'pending';
+            const expired = isPending && approvalExpired(booking, nowMs);
             const isNegative = booking.status === 'cancelled' || booking.status === 'rejected';
             return (
               <TouchableOpacity
@@ -204,6 +273,7 @@ export default function AdminBookingsScreen({ navigation }: any) {
                 <Text style={styles.customer}>{booking.user?.name || booking.user_name || 'Customer'}</Text>
                 <Text style={styles.meta}>{booking.user?.vehicle_number || booking.vehicle_number || '-'}</Text>
                 <Text style={styles.meta}>
+                  {mode === 'day' ? '' : `${booking.slot_date}  `}
                   {booking.slot_start?.slice(0, 5)} - {booking.slot_end?.slice(0, 5)}
                 </Text>
                 <View style={[styles.badge, isNegative && styles.badgeNegative, isPending && styles.badgePending]}>
@@ -222,17 +292,21 @@ export default function AdminBookingsScreen({ navigation }: any) {
                       <Text style={styles.rejectBtnText}>Reject</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.approveBtn}
-                      disabled={actingOn === booking.id}
+                      style={[styles.approveBtn, expired && styles.approveBtnDisabled]}
+                      disabled={actingOn === booking.id || expired}
+                      accessibilityState={{ disabled: expired }}
                       onPress={() => handleApprove(booking.id)}
                     >
                       {actingOn === booking.id ? (
                         <ActivityIndicator size="small" color={t.colors.onBrand} />
                       ) : (
-                        <Text style={styles.approveBtnText}>Approve</Text>
+                        <Text style={[styles.approveBtnText, expired && styles.approveBtnTextDisabled]}>{expired ? 'Expired' : 'Approve'}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
+                ) : null}
+                {isPending && expired ? (
+                  <Text style={styles.expiredNote}>Time expired: this slot has already started, so it can no longer be approved. Reject it to free the slot.</Text>
                 ) : null}
 
                 {canMarkNoShow(booking) ? (
@@ -251,7 +325,12 @@ export default function AdminBookingsScreen({ navigation }: any) {
               </TouchableOpacity>
             );
           })}
-          {bookings.length === 0 ? <Text style={styles.empty}>No bookings for selected date.</Text> : null}
+          {bookings.length === 0 ? <Text style={styles.empty}>No bookings match this filter.</Text> : null}
+          {hasMore ? (
+            <TouchableOpacity style={[styles.chip, { alignSelf: 'center', marginTop: 8 }]} onPress={loadMore} disabled={loadingMore} accessibilityRole="button">
+              {loadingMore ? <ActivityIndicator size="small" color={t.colors.brandText} /> : <Text style={styles.chipTextActive}>{`Load more (${total - bookings.length} older)`}</Text>}
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       )}
     </View>
@@ -409,11 +488,29 @@ const createStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: t.colors.brand,
   },
+  approveBtnDisabled: { backgroundColor: t.colors.surfaceAlt, borderWidth: 1, borderColor: t.colors.border },
+  approveBtnTextDisabled: { color: t.colors.textMuted },
+  expiredNote: { color: t.colors.textSecondary, fontSize: 12, marginTop: 8, lineHeight: 17 },
   approveBtnText: {
     color: t.colors.onBrand,
     fontWeight: '700',
     fontSize: 13,
   },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' },
+  chip: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+    backgroundColor: t.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: { backgroundColor: t.colors.brandTint, borderColor: t.colors.brand },
+  chipText: { color: t.colors.textSecondary, fontWeight: '700', fontSize: 13 },
+  chipTextActive: { color: t.colors.brandText, fontWeight: '800', fontSize: 13 },
+  summary: { color: t.colors.textSecondary, fontSize: 12, fontWeight: '600', marginTop: 10 },
   empty: {
     textAlign: 'center',
     color: t.colors.textSecondary,

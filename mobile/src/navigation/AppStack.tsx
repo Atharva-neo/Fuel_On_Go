@@ -1,4 +1,7 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarMetrics } from './tabBarMetrics';
+import { slideScreenOptions, swipeLayout, useReduceMotion } from './swipeTabs';
 import { useTheme } from '../theme';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -25,18 +28,20 @@ const Stack = createNativeStackNavigator<AppStackParamList>();
 
 const HomeTabs = () => {
   const t = useTheme();
+  const reduceMotion = useReduceMotion();
+  const insets = useSafeAreaInsets();
   return (
   <Tab.Navigator
+    screenLayout={swipeLayout(['Home'])}
     screenOptions={({ route }) => ({
       headerShown: false,
+      ...slideScreenOptions(reduceMotion),
       tabBarStyle: {
         backgroundColor: t.colors.surface,
         borderTopWidth: 1,
         borderTopColor: t.colors.border,
         elevation: 10,
-        height: 64,
-        paddingBottom: 8,
-        paddingTop: 8,
+        ...tabBarMetrics(insets.bottom),
       },
       tabBarActiveTintColor: t.colors.brandText,
       tabBarInactiveTintColor: t.colors.textMuted,
