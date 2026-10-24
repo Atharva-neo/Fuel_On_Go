@@ -299,3 +299,19 @@ test('input cleaning: control characters stripped, whitespace collapsed, empty b
   assert.deepEqual(v.tags, ['fast_service']);
   assert.ok(RATING_TAGS.includes('long_wait') && RATING_TAGS.includes('poor_service'));
 });
+
+test('the exact payload the app sends is accepted (4 stars, review, tags, booking id); the pump is derived server-side', async () => {
+  const { svc, store } = setup();
+  const payload = { booking_id: BK(1), rating: 4, review: 'Helpful staff, very nice', tags: ['fast_service', 'short_wait', 'helpful_staff'] };
+  assert.equal(validateSubmission(payload).rating, 4);
+  const r = await svc.submit({ userId: 'cust', body: payload });
+  assert.equal(r.pump.id, 'p1');
+  assert.deepEqual(store.ratings[0].tags, ['fast_service', 'helpful_staff', 'short_wait']);
+});
+
+test('a request without stars or booking id says exactly which field is missing', async () => {
+  const { svc } = setup();
+  await assert.rejects(svc.submit({ userId: 'cust', body: { booking_id: BK(1), review: 'x' } }), { code: 'INVALID_RATING', status: 400 });
+  await assert.rejects(svc.submit({ userId: 'cust', body: { rating: 4 } }), { code: 'BOOKING_REQUIRED', status: 400 });
+  await assert.rejects(svc.submit({ userId: 'cust', body: { pump_id: 'p1', rating: 4 } }), { code: 'BOOKING_REQUIRED' }); // a pump id alone is never proof of a visit
+});
